@@ -104,6 +104,24 @@
       "get": { "responses": { "200": { "description": "Services" } } },
       "post": { "responses": { "201": { "description": "Service created" } } }
     },
+    "/nomenclature": {
+      "get": { "responses": { "200": { "description": "Nomenclature items" } } },
+      "post": { "responses": { "201": { "description": "Nomenclature item created" } } }
+    },
+    "/nomenclature/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string", "format": "uuid" }
+        }
+      ],
+      "patch": { "responses": { "200": { "description": "Nomenclature item updated" } } },
+      "delete": {
+        "responses": { "200": { "description": "Nomenclature item archived" } }
+      }
+    },
     "/price-lists": {
       "get": { "responses": { "200": { "description": "Price lists" } } },
       "post": { "responses": { "201": { "description": "Price list created" } } }
@@ -182,6 +200,13 @@
     },
     "/production/items/scan/{scanCode}": {
       "get": { "responses": { "200": { "description": "Scanned item" } } }
+    },
+    "/production/routes": {
+      "get": {
+        "responses": {
+          "200": { "description": "Production routes and ordered stages" }
+        }
+      }
     },
     "/order-items/{itemId}/transition": {
       "post": { "responses": { "200": { "description": "Stage transitioned" } } }

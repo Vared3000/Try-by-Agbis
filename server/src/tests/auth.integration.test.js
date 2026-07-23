@@ -296,6 +296,10 @@ integration('auth API with PostgreSQL', () => {
       where: { organizationId: ids.organization },
       force: true,
     })
+    await models.NomenclatureItem.destroy({
+      where: { organizationId: ids.organization },
+      force: true,
+    })
     await models.NumberSequence.destroy({
       where: { organizationId: ids.organization },
       force: true,
@@ -757,6 +761,11 @@ integration('auth API with PostgreSQL', () => {
       .send({ email, password })
       .expect(200)
     const authorization = `Bearer ${login.body.data.accessToken}`
+    const routes = await request(app)
+      .get('/api/v1/production/routes')
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(routes.body.data[0].stages).toHaveLength(3)
     const item = await sequelize.models.OrderItem.findOne({
       where: { organizationId: ids.organization },
       order: [['createdAt', 'DESC']],
@@ -859,5 +868,63 @@ integration('auth API with PostgreSQL', () => {
       .set('Authorization', authorization)
       .expect(200)
     expect(audit.body.data.some(({ action }) => action === 'order.issued')).toBe(true)
+  })
+
+  it('calculates a square-meter nomenclature position inside an order', async () => {
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(200)
+    const authorization = `Bearer ${login.body.data.accessToken}`
+    const position = await request(app)
+      .post('/api/v1/nomenclature')
+      .set('Authorization', authorization)
+      .send({
+        name: 'Integration wool carpet',
+        unit: 'square_meter',
+        unitPrice: '59000',
+      })
+      .expect(201)
+    expect(position.body.data.calculationType).toBe('area')
+
+    const client = await sequelize.models.Client.findOne({
+      where: { organizationId: ids.organization },
+    })
+    const order = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', authorization)
+      .send({
+        branchId: ids.branch,
+        acceptanceLocationId: ids.location,
+        clientId: client.id,
+      })
+      .expect(201)
+    const item = await request(app)
+      .post(`/api/v1/orders/${order.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({
+        nomenclatureItemId: position.body.data.id,
+        length: '2',
+        width: '3',
+      })
+      .expect(201)
+    expect(item.body.data.area).toBe('6.000')
+    expect(item.body.data.unitPrice).toBe('59000')
+    expect(item.body.data.totalAmount).toBe('354000')
+    expect(item.body.data.routeId).toBe(ids.productionRoute)
+
+    await request(app)
+      .post(`/api/v1/orders/${order.body.data.id}/accept`)
+      .set('Authorization', authorization)
+      .set('Idempotency-Key', `accept-area-${suffix}`)
+      .expect(200)
+
+    const details = await request(app)
+      .get(`/api/v1/orders/${order.body.data.id}`)
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(details.body.data.status).toBe('accepted')
+    expect(details.body.data.totalAmount).toBe('354000')
+    expect(details.body.data.items[0].nomenclature.name).toBe('Integration wool carpet')
   })
 })

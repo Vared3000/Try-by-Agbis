@@ -246,48 +246,12 @@ export async function seed(sequelize, logger) {
     })
 
     const nomenclatureItems = [
-      [
-        ids.nomenclatureCarpet,
-        'Ковер шерстяной',
-        'square_meter',
-        'area',
-        59000,
-      ],
-      [
-        '50000000-0000-4000-8000-000000000001',
-        'Пальто',
-        'piece',
-        'quantity',
-        250000,
-      ],
-      [
-        '50000000-0000-4000-8000-000000000002',
-        'Куртка',
-        'piece',
-        'quantity',
-        220000,
-      ],
-      [
-        '50000000-0000-4000-8000-000000000003',
-        'Платье',
-        'piece',
-        'quantity',
-        180000,
-      ],
-      [
-        '50000000-0000-4000-8000-000000000004',
-        'Шторы',
-        'linear_meter',
-        'length',
-        45000,
-      ],
-      [
-        '50000000-0000-4000-8000-000000000005',
-        'Бельё',
-        'kilogram',
-        'weight',
-        35000,
-      ],
+      [ids.nomenclatureCarpet, 'Ковер шерстяной', 'square_meter', 'area', 59000],
+      ['50000000-0000-4000-8000-000000000001', 'Пальто', 'piece', 'quantity', 250000],
+      ['50000000-0000-4000-8000-000000000002', 'Куртка', 'piece', 'quantity', 220000],
+      ['50000000-0000-4000-8000-000000000003', 'Платье', 'piece', 'quantity', 180000],
+      ['50000000-0000-4000-8000-000000000004', 'Шторы', 'linear_meter', 'length', 45000],
+      ['50000000-0000-4000-8000-000000000005', 'Бельё', 'kilogram', 'weight', 35000],
     ]
     for (const [id, name, unit, calculationType, unitPrice] of nomenclatureItems) {
       await models.NomenclatureItem.findOrCreate({

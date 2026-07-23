@@ -64,18 +64,8 @@ function associate(models) {
   belongsTo('Order', 'Branch', 'branchId', 'branch')
   belongsTo('OrderItem', 'Order', 'orderId', 'order')
   belongsTo('OrderItem', 'GarmentType', 'garmentTypeId', 'garmentType')
-  belongsTo(
-    'OrderItem',
-    'NomenclatureItem',
-    'nomenclatureItemId',
-    'nomenclature',
-  )
-  hasMany(
-    'NomenclatureItem',
-    'OrderItem',
-    'nomenclatureItemId',
-    'orderItems',
-  )
+  belongsTo('OrderItem', 'NomenclatureItem', 'nomenclatureItemId', 'nomenclature')
+  hasMany('NomenclatureItem', 'OrderItem', 'nomenclatureItemId', 'orderItems')
   belongsTo('OrderItem', 'Material', 'materialId', 'material')
   belongsTo('OrderItem', 'Color', 'colorId', 'color')
   belongsTo('OrderItem', 'ProductionRoute', 'routeId', 'route')
@@ -84,6 +74,8 @@ function associate(models) {
   belongsTo('OrderItemService', 'Service', 'serviceId', 'service')
   hasMany('OrderItem', 'OrderItemDefect', 'orderItemId', 'defects')
   hasMany('OrderItem', 'OrderItemContamination', 'orderItemId', 'contaminations')
+  belongsTo('OrderItemDefect', 'Defect', 'defectId', 'defect')
+  belongsTo('OrderItemContamination', 'Contamination', 'contaminationId', 'contamination')
   hasMany('OrderItem', 'ItemStageHistory', 'orderItemId', 'stageHistory')
   hasMany('OrderItem', 'ItemMovement', 'orderItemId', 'movements')
   hasMany('OrderItem', 'File', 'orderItemId', 'files')

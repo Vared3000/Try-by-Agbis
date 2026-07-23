@@ -56,6 +56,31 @@ export function createProductionRouter({ sequelize, env }) {
     })
 
   router.get(
+    '/production/routes',
+    requirePermission('production.view'),
+    async (req, res) => {
+      const routes = await models.ProductionRoute.findAll({
+        where: {
+          organizationId: req.auth.organizationId,
+          archivedAt: null,
+        },
+        include: [
+          {
+            model: models.ProductionRouteStage,
+            as: 'stages',
+            include: [{ model: models.ProductionStage, as: 'stage' }],
+          },
+        ],
+        order: [
+          ['name', 'ASC'],
+          [{ model: models.ProductionRouteStage, as: 'stages' }, 'position', 'ASC'],
+        ],
+      })
+      res.json(success(routes, req.correlationId))
+    },
+  )
+
+  router.get(
     '/production/items/scan/:scanCode',
     requirePermission('production.view'),
     async (req, res) => {

@@ -5,15 +5,18 @@ import { apiClient } from '../api/client.js'
 import { useAuth } from '../app/auth-context.js'
 import { CatalogPage } from './CatalogPage.jsx'
 import { ClientsPage } from './ClientsPage.jsx'
+import { NomenclaturePage } from './NomenclaturePage.jsx'
 import { OrdersPage } from './OrdersPage.jsx'
 import { PriceListsPage } from './PriceListsPage.jsx'
+import { ProductionPage } from './ProductionPage.jsx'
 import { money } from './workspace-utils.js'
 
 const navigation = [
   ['overview', 'Обзор', '⌂'],
   ['clients', 'Клиенты', '◉'],
   ['orders', 'Заказы', '▤'],
-  ['catalog', 'Номенклатура', '◆'],
+  ['nomenclature', 'Номенклатура', '◆'],
+  ['catalog', 'Справочники', '◇'],
   ['pricing', 'Прайс-листы', '₽'],
   ['production', 'Производство', '⌁'],
   ['cash', 'Касса', '₽'],
@@ -28,9 +31,6 @@ const endpoints = {
 export function WorkspacePage() {
   const auth = useAuth()
   const [section, setSection] = useState('overview')
-  const [scanCode, setScanCode] = useState('')
-  const [scannedItem, setScannedItem] = useState(null)
-  const [scanError, setScanError] = useState('')
   const list = useQuery({
     queryKey: ['workspace', section],
     queryFn: async () => (await apiClient.get(endpoints[section])).data.data,
@@ -46,20 +46,6 @@ export function WorkspacePage() {
     queryFn: async () => (await apiClient.get('/reports/financial')).data.data,
     enabled: section === 'overview' || section === 'reports',
   })
-
-  const scan = async (event) => {
-    event.preventDefault()
-    setScanError('')
-    try {
-      const response = await apiClient.get(
-        `/production/items/scan/${encodeURIComponent(scanCode)}`,
-      )
-      setScannedItem(response.data.data)
-    } catch (error) {
-      setScannedItem(null)
-      setScanError(error.response?.data?.error?.message ?? 'Изделие не найдено')
-    }
-  }
 
   return (
     <div className="workspace">
@@ -146,33 +132,11 @@ export function WorkspacePage() {
           </section>
         )}
 
-        {section === 'production' && (
-          <section className="panel scanner-panel">
-            <p className="eyebrow">Сканер изделия</p>
-            <h2>QR или Code 128</h2>
-            <form onSubmit={scan} className="scan-form">
-              <input
-                value={scanCode}
-                onChange={(event) => setScanCode(event.target.value)}
-                placeholder="Отсканируйте код бирки"
-                autoFocus
-              />
-              <button className="primary-button">Найти</button>
-            </form>
-            {scanError && <p className="form-error">{scanError}</p>}
-            {scannedItem && (
-              <article className="scan-result">
-                <span className="status-pill">{scannedItem.status}</span>
-                <h3>{scannedItem.description || 'Изделие без описания'}</h3>
-                <p>Заказ {scannedItem.order?.displayNumber}</p>
-                <code>{scannedItem.scanCode}</code>
-              </article>
-            )}
-          </section>
-        )}
+        {section === 'production' && <ProductionPage />}
 
         {section === 'clients' && <ClientsPage />}
         {section === 'orders' && <OrdersPage />}
+        {section === 'nomenclature' && <NomenclaturePage />}
         {section === 'catalog' && <CatalogPage />}
         {section === 'pricing' && <PriceListsPage />}
         {section === 'notifications' && (

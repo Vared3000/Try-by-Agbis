@@ -6,7 +6,7 @@ import { schema } from '../database/schema.js'
 
 describe('database schema', () => {
   it('defines every MVP entity with UUID identifiers and timestamps', () => {
-    expect(Object.keys(schema)).toHaveLength(47)
+    expect(Object.keys(schema)).toHaveLength(48)
 
     for (const definition of Object.values(schema)) {
       expect(definition.options.tableName).toBeTruthy()
@@ -47,11 +47,12 @@ describe('database schema', () => {
 
     try {
       const models = initializeModels(sequelize)
-      expect(Object.keys(models)).toHaveLength(47)
+      expect(Object.keys(models)).toHaveLength(48)
       expect(models.Organization.associations.branches).toBeTruthy()
       expect(models.User.associations.roles).toBeTruthy()
       expect(models.Order.associations.items).toBeTruthy()
       expect(models.OrderItem.associations.stageHistory).toBeTruthy()
+      expect(models.OrderItem.associations.nomenclature).toBeTruthy()
       expect(models.Payment.associations.refunds).toBeTruthy()
     } finally {
       await sequelize.close()

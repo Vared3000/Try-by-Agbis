@@ -49,10 +49,7 @@ export function createApp({ environment, logger, readyCheck, sequelize, env }) {
     app.use('/api/v1/auth', createAuthRouter({ sequelize, env }))
     app.use('/api/v1/clients', createClientsRouter({ sequelize, env }))
     app.use('/api/v1/catalog', createCatalogRouter({ sequelize, env }))
-    app.use(
-      '/api/v1/nomenclature',
-      createNomenclatureRouter({ sequelize, env }),
-    )
+    app.use('/api/v1/nomenclature', createNomenclatureRouter({ sequelize, env }))
     app.use('/api/v1/services', createServicesRouter({ sequelize, env }))
     app.use('/api/v1/price-lists', createPriceListsRouter({ sequelize, env }))
     const ordersRouter = createOrdersRouter({ sequelize, env })

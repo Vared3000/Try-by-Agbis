@@ -45,14 +45,10 @@ export async function up({ queryInterface, transaction }) {
     transaction,
   })
   if (!indexes.some((index) => index.name === 'nomenclature_items_org_name')) {
-    await queryInterface.addIndex(
-      'nomenclature_items',
-      ['organizationId', 'name'],
-      {
-        name: 'nomenclature_items_org_name',
-        transaction,
-      },
-    )
+    await queryInterface.addIndex('nomenclature_items', ['organizationId', 'name'], {
+      name: 'nomenclature_items_org_name',
+      transaction,
+    })
   }
 
   const columns = await queryInterface.describeTable('order_items', {
@@ -88,14 +84,8 @@ export async function up({ queryInterface, transaction }) {
       { transaction },
     )
   }
-  await queryInterface.changeColumn(
-    'order_items',
-    'garmentTypeId',
-    {
-      type: DataTypes.UUID,
-      allowNull: true,
-      references: { model: 'garment_types', key: 'id' },
-    },
+  await queryInterface.sequelize.query(
+    'ALTER TABLE "order_items" ALTER COLUMN "garmentTypeId" DROP NOT NULL',
     { transaction },
   )
 }

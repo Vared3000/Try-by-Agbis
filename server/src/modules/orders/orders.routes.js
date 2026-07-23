@@ -20,10 +20,7 @@ const orderInput = z.object({
 })
 
 const decimalInput = z
-  .union([
-    z.string().regex(/^\d+([.,]\d{1,3})?$/),
-    z.number().positive().safe(),
-  ])
+  .union([z.string().regex(/^\d+([.,]\d{1,3})?$/), z.number().positive().safe()])
   .transform((value) => String(value).replace(',', '.'))
 
 const itemInput = z
@@ -37,6 +34,8 @@ const itemInput = z
     quantity: decimalInput.optional(),
     length: decimalInput.optional(),
     width: decimalInput.optional(),
+    defectIds: z.array(z.string().uuid()).max(50).default([]),
+    contaminationIds: z.array(z.string().uuid()).max(50).default([]),
   })
   .refine((value) => value.nomenclatureItemId || value.garmentTypeId, {
     message: 'Требуется позиция номенклатуры или тип изделия',
@@ -112,6 +111,16 @@ export function createOrdersRouter({ sequelize, env }) {
       include: [
         { model: models.OrderItemService, as: 'services' },
         { model: models.NomenclatureItem, as: 'nomenclature' },
+        {
+          model: models.OrderItemDefect,
+          as: 'defects',
+          include: [{ model: models.Defect, as: 'defect' }],
+        },
+        {
+          model: models.OrderItemContamination,
+          as: 'contaminations',
+          include: [{ model: models.Contamination, as: 'contamination' }],
+        },
       ],
     },
   ]
@@ -119,13 +128,33 @@ export function createOrdersRouter({ sequelize, env }) {
   router.get('/', requirePermission('orders.view'), async (req, res) => {
     const page = Math.max(1, Number(req.query.page) || 1)
     const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 20))
+    const search = String(req.query.search ?? '').trim()
     const where = {
       organizationId: req.auth.organizationId,
       branchId: { [Op.in]: req.auth.branchIds },
       ...(req.query.status ? { status: req.query.status } : {}),
+      ...(search
+        ? {
+            [Op.or]: [
+              { displayNumber: { [Op.iLike]: `%${search}%` } },
+              { '$client.fullName$': { [Op.iLike]: `%${search}%` } },
+              { '$client.phone$': { [Op.iLike]: `%${search}%` } },
+            ],
+          }
+        : {}),
     }
     const { rows, count } = await models.Order.findAndCountAll({
       where,
+      include: [
+        {
+          model: models.Client,
+          as: 'client',
+          attributes: ['id', 'fullName', 'phone'],
+          required: false,
+        },
+      ],
+      distinct: true,
+      subQuery: false,
       order: [['createdAt', 'DESC']],
       limit: pageSize,
       offset: (page - 1) * pageSize,
@@ -433,14 +462,64 @@ export function createOrdersRouter({ sequelize, env }) {
       const itemTotal = nomenclature
         ? (BigInt(nomenclature.unitPrice) * measurementMillis + 500n) / 1000n
         : 0n
+      let routeId = input.routeId ?? null
+      if (nomenclature && !routeId) {
+        const defaultRoute = await models.ProductionRoute.findOne({
+          where: {
+            organizationId: req.auth.organizationId,
+            archivedAt: null,
+          },
+          order: [
+            ['createdAt', 'ASC'],
+            ['id', 'ASC'],
+          ],
+          transaction,
+        })
+        routeId = defaultRoute?.id ?? null
+      }
+      const [defects, contaminations] = await Promise.all([
+        input.defectIds.length
+          ? models.Defect.findAll({
+              where: {
+                id: { [Op.in]: input.defectIds },
+                organizationId: req.auth.organizationId,
+                archivedAt: null,
+              },
+              transaction,
+            })
+          : [],
+        input.contaminationIds.length
+          ? models.Contamination.findAll({
+              where: {
+                id: { [Op.in]: input.contaminationIds },
+                organizationId: req.auth.organizationId,
+                archivedAt: null,
+              },
+              transaction,
+            })
+          : [],
+      ])
+      if (
+        defects.length !== new Set(input.defectIds).size ||
+        contaminations.length !== new Set(input.contaminationIds).size
+      ) {
+        throw new ApiError({
+          status: 422,
+          code: 'ORDER_ITEM_DETAILS_INVALID',
+          message: 'Выбранный дефект или загрязнение недоступны',
+        })
+      }
       const item = await models.OrderItem.create(
         {
           organizationId: req.auth.organizationId,
           orderId: order.id,
           scanCode: randomBytes(24).toString('base64url'),
           ...input,
+          defectIds: undefined,
+          contaminationIds: undefined,
           garmentTypeId: garment?.id ?? null,
           nomenclatureItemId: nomenclature?.id ?? null,
+          routeId,
           description: input.description || nomenclature?.name || null,
           quantity,
           length,
@@ -453,6 +532,28 @@ export function createOrdersRouter({ sequelize, env }) {
         },
         { transaction },
       )
+      await Promise.all([
+        input.defectIds.length
+          ? models.OrderItemDefect.bulkCreate(
+              input.defectIds.map((defectId) => ({
+                organizationId: req.auth.organizationId,
+                orderItemId: item.id,
+                defectId,
+              })),
+              { transaction },
+            )
+          : null,
+        input.contaminationIds.length
+          ? models.OrderItemContamination.bulkCreate(
+              input.contaminationIds.map((contaminationId) => ({
+                organizationId: req.auth.organizationId,
+                orderItemId: item.id,
+                contaminationId,
+              })),
+              { transaction },
+            )
+          : null,
+      ])
       if (itemTotal > 0n) {
         const nextSubtotal = BigInt(order.subtotalAmount) + itemTotal
         await order.update(
@@ -555,6 +656,73 @@ export function createOrdersRouter({ sequelize, env }) {
         return service
       })
       res.status(201).json(success(snapshot, req.correlationId))
+    },
+  )
+
+  router.delete(
+    '/items/:itemId',
+    requirePermission('orders.update'),
+    async (req, res) => {
+      const result = await sequelize.transaction(async (transaction) => {
+        const item = await models.OrderItem.findOne({
+          where: {
+            id: req.params.itemId,
+            organizationId: req.auth.organizationId,
+          },
+          include: [{ model: models.Order, as: 'order', required: true }],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+        if (
+          !item ||
+          item.order.status !== 'draft' ||
+          !req.auth.branchIds.includes(item.order.branchId)
+        ) {
+          throw missing('ORDER_ITEM_NOT_FOUND', 'Изделие не найдено')
+        }
+        const attachedFiles = await models.File.count({
+          where: {
+            orderItemId: item.id,
+            organizationId: req.auth.organizationId,
+          },
+          transaction,
+        })
+        if (attachedFiles) {
+          throw new ApiError({
+            status: 409,
+            code: 'ORDER_ITEM_HAS_FILES',
+            message: 'Перед удалением позиции удалите прикреплённые фотографии',
+          })
+        }
+        await models.OrderItemService.destroy({
+          where: { orderItemId: item.id },
+          transaction,
+        })
+        await models.OrderItemDefect.destroy({
+          where: { orderItemId: item.id },
+          transaction,
+        })
+        await models.OrderItemContamination.destroy({
+          where: { orderItemId: item.id },
+          transaction,
+        })
+        const nextSubtotal = BigInt(item.order.subtotalAmount) - BigInt(item.totalAmount)
+        await item.destroy({ transaction })
+        await item.order.update(
+          {
+            subtotalAmount: nextSubtotal.toString(),
+            totalAmount: nextSubtotal.toString(),
+            version: item.order.version + 1,
+          },
+          { transaction },
+        )
+        return {
+          deleted: true,
+          subtotalAmount: nextSubtotal.toString(),
+          totalAmount: nextSubtotal.toString(),
+        }
+      })
+      res.json(success(result, req.correlationId))
     },
   )
 
