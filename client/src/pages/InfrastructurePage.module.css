@@ -1,0 +1,121 @@
+.page {
+  align-items: center;
+  background:
+    radial-gradient(circle at 15% 20%, rgb(28 101 90 / 14%), transparent 32rem),
+    linear-gradient(145deg, #f8faf7 0%, #edf3ef 100%);
+  display: flex;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.card {
+  background: rgb(255 255 255 / 86%);
+  border: 1px solid rgb(18 64 57 / 10%);
+  border-radius: 1.75rem;
+  box-shadow: 0 2rem 5rem rgb(22 56 49 / 12%);
+  margin: 0 auto;
+  max-width: 44rem;
+  padding: clamp(2rem, 6vw, 4rem);
+  width: 100%;
+}
+
+.brand {
+  align-items: center;
+  display: flex;
+  gap: 1.25rem;
+}
+
+.mark {
+  align-items: center;
+  background: #153f38;
+  border-radius: 1rem;
+  color: #fff;
+  display: flex;
+  flex: 0 0 4rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  height: 4rem;
+  justify-content: center;
+  letter-spacing: 0.08em;
+}
+
+.eyebrow {
+  color: #267568;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  margin: 0 0 0.45rem;
+  text-transform: uppercase;
+}
+
+.card h1 {
+  color: #132e29;
+  font-size: clamp(1.75rem, 5vw, 3rem);
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.summary {
+  color: #4d625d;
+  font-size: 1.05rem;
+  line-height: 1.65;
+  margin: 2rem 0;
+}
+
+.status {
+  align-items: center;
+  background: #f4f7f5;
+  border: 1px solid #dbe5e1;
+  border-radius: 1rem;
+  display: flex;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+}
+
+.statusDot {
+  background: #d59b24;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.35rem rgb(213 155 36 / 14%);
+  height: 0.65rem;
+  width: 0.65rem;
+}
+
+.status[data-state='ready'] .statusDot {
+  background: #1d8a71;
+  box-shadow: 0 0 0 0.35rem rgb(29 138 113 / 14%);
+}
+
+.status[data-state='error'] .statusDot {
+  background: #c24747;
+  box-shadow: 0 0 0 0.35rem rgb(194 71 71 / 14%);
+}
+
+.status strong,
+.status span {
+  display: block;
+}
+
+.status strong {
+  color: #183d36;
+  font-size: 0.95rem;
+}
+
+.status span {
+  color: #6d7d78;
+  font-size: 0.82rem;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 36rem) {
+  .page {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .card {
+    border: 0;
+    border-radius: 0;
+    min-height: 100vh;
+  }
+}

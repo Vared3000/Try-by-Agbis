@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: cleanflow
+          POSTGRES_USER: cleanflow
+          POSTGRES_PASSWORD: ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cleanflow -d cleanflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      HOST: 127.0.0.1
+      SERVER_PORT: 3000
+      LOG_LEVEL: silent
+      DATABASE_URL: postgresql://cleanflow:ci-password@127.0.0.1:5432/cleanflow
+      DATABASE_SSL: 'false'
+      DB_POOL_MIN: 0
+      DB_POOL_MAX: 10
+      ACCESS_TOKEN_SECRET: cleanflow-ci-secret-at-least-thirty-two-characters
+      ACCESS_TOKEN_TTL_SECONDS: 900
+      REFRESH_TOKEN_TTL_DAYS: 30
+      AUTH_COOKIE_NAME: cleanflow_refresh
+      AUTH_COOKIE_SECURE: 'false'
+      FILE_STORAGE_PATH: uploads
+      FILE_MAX_SIZE_MB: 10
+      FILE_MAX_PER_ITEM: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @cleanflow/server db:migrate
+      - run: pnpm --filter @cleanflow/server db:seed
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm --filter @cleanflow/server test:db
+      - run: pnpm build

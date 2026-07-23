@@ -1,0 +1,41 @@
+{
+  "name": "@cleanflow/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=../.env src/server.js",
+    "start": "node --env-file-if-exists=../.env src/server.js",
+    "db:migrate": "node --env-file-if-exists=../.env src/database/migrate.js up",
+    "db:rollback": "node --env-file-if-exists=../.env src/database/migrate.js down",
+    "db:seed": "node --env-file-if-exists=../.env src/database/seed.js",
+    "user:set-password": "node --env-file-if-exists=../.env src/database/set-user-password.js",
+    "test": "vitest run",
+    "test:db": "node --env-file-if-exists=../.env node_modules/vitest/vitest.mjs run src/tests/auth.integration.test.js",
+    "build": "node --check src/server.js"
+  },
+  "dependencies": {
+    "argon2": "0.45.1",
+    "bwip-js": "4.11.2",
+    "cookie": "2.0.1",
+    "express": "5.2.1",
+    "jose": "6.2.4",
+    "multer": "2.2.0",
+    "pg": "8.22.0",
+    "pg-hstore": "2.3.4",
+    "pino": "10.3.1",
+    "pino-http": "11.0.0",
+    "qrcode": "1.5.4",
+    "sequelize": "6.37.8",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "jsqr": "1.4.0",
+    "pngjs": "7.0.0",
+    "supertest": "7.2.2",
+    "vitest": "4.1.10"
+  }
+}

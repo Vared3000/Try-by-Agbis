@@ -1,0 +1,101 @@
+name: cleanflow
+
+services:
+  db:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cleanflow}
+      POSTGRES_USER: ${POSTGRES_USER:-cleanflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-cleanflow} -d ${POSTGRES_DB:-cleanflow}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      SERVER_PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cleanflow}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-cleanflow}
+      DATABASE_SSL: 'false'
+      DB_POOL_MIN: ${DB_POOL_MIN:-0}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:?Set ACCESS_TOKEN_SECRET in .env}
+      ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-900}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
+      AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-cleanflow_refresh}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
+      FILE_STORAGE_PATH: /app/uploads
+      FILE_MAX_SIZE_MB: ${FILE_MAX_SIZE_MB:-10}
+      FILE_MAX_PER_ITEM: ${FILE_MAX_PER_ITEM:-10}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--quiet',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1:3000/api/v1/ready',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    volumes:
+      - uploaded-files:/app/uploads
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--quiet',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1/client-health',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.30.4-alpine
+    depends_on:
+      client:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+    ports:
+      - '${PUBLIC_PORT:-8080}:80'
+    restart: unless-stopped
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  postgres-data:
+  uploaded-files:

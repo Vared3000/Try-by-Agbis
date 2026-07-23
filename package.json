@@ -1,0 +1,32 @@
+{
+  "name": "cleanflow-erp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CleanFlow ERP modular monolith",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @cleanflow/client --filter @cleanflow/server dev",
+    "dev:client": "pnpm --filter @cleanflow/client dev",
+    "dev:server": "pnpm --filter @cleanflow/server dev",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm --recursive --if-present test",
+    "build": "pnpm --recursive --if-present build",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
+    "eslint": "10.7.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.3",
+    "globals": "17.7.0",
+    "prettier": "3.9.6"
+  }
+}

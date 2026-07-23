@@ -1,0 +1,219 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CleanFlow ERP API",
+    "version": "0.1.0",
+    "description": "REST API modular monolith for dry-cleaning operations"
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" },
+      "refreshCookie": { "type": "apiKey", "in": "cookie", "name": "cleanflow_refresh" }
+    },
+    "schemas": {
+      "Envelope": {
+        "type": "object",
+        "required": ["data", "meta", "error"],
+        "properties": {
+          "data": {},
+          "meta": {
+            "type": "object",
+            "required": ["correlationId"],
+            "properties": { "correlationId": { "type": "string", "format": "uuid" } }
+          },
+          "error": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "required": ["code", "message", "details"],
+                "properties": {
+                  "code": { "type": "string" },
+                  "message": { "type": "string" },
+                  "details": { "type": "array" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/health": {
+      "get": { "security": [], "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/ready": {
+      "get": {
+        "security": [],
+        "responses": {
+          "200": { "description": "Ready" },
+          "503": { "description": "Unavailable" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "security": [],
+        "responses": {
+          "200": { "description": "Authenticated" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "security": [{ "refreshCookie": [] }],
+        "responses": {
+          "200": { "description": "Rotated" },
+          "401": { "description": "Invalid session" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": { "responses": { "200": { "description": "Logged out" } } }
+    },
+    "/auth/me": {
+      "get": { "responses": { "200": { "description": "Current access context" } } }
+    },
+    "/clients": {
+      "get": { "responses": { "200": { "description": "Client page" } } },
+      "post": { "responses": { "201": { "description": "Client created" } } }
+    },
+    "/clients/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string", "format": "uuid" }
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": { "description": "Client" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "patch": { "responses": { "200": { "description": "Updated" } } },
+      "delete": { "responses": { "200": { "description": "Archived" } } }
+    },
+    "/services": {
+      "get": { "responses": { "200": { "description": "Services" } } },
+      "post": { "responses": { "201": { "description": "Service created" } } }
+    },
+    "/price-lists": {
+      "get": { "responses": { "200": { "description": "Price lists" } } },
+      "post": { "responses": { "201": { "description": "Price list created" } } }
+    },
+    "/orders": {
+      "get": { "responses": { "200": { "description": "Orders" } } },
+      "post": { "responses": { "201": { "description": "Draft created" } } }
+    },
+    "/orders/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string", "format": "uuid" }
+        }
+      ],
+      "get": { "responses": { "200": { "description": "Order" } } }
+    },
+    "/orders/{id}/items": {
+      "post": { "responses": { "201": { "description": "Item added" } } }
+    },
+    "/orders/{id}/accept": {
+      "post": {
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Accepted" },
+          "409": { "description": "Conflict" }
+        }
+      }
+    },
+    "/orders/{id}/receipt": {
+      "get": {
+        "responses": {
+          "200": { "description": "HTML receipt", "content": { "text/html": {} } }
+        }
+      }
+    },
+    "/order-items/{id}/labels": {
+      "get": { "responses": { "200": { "description": "QR, Code 128 or 55mm label" } } }
+    },
+    "/files": {
+      "post": {
+        "responses": {
+          "201": { "description": "Photo uploaded" },
+          "413": { "description": "Too large" }
+        }
+      }
+    },
+    "/files/{id}": {
+      "get": {
+        "responses": {
+          "200": { "description": "Protected file bytes" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/cash-shifts": {
+      "post": { "responses": { "201": { "description": "Shift opened" } } }
+    },
+    "/cash-shifts/{id}/close": {
+      "post": { "responses": { "200": { "description": "Shift closed" } } }
+    },
+    "/orders/{orderId}/payments": {
+      "post": { "responses": { "201": { "description": "Payment confirmed" } } }
+    },
+    "/payments/{paymentId}/refunds": {
+      "post": { "responses": { "201": { "description": "Refund confirmed" } } }
+    },
+    "/production/items/scan/{scanCode}": {
+      "get": { "responses": { "200": { "description": "Scanned item" } } }
+    },
+    "/order-items/{itemId}/transition": {
+      "post": { "responses": { "200": { "description": "Stage transitioned" } } }
+    },
+    "/order-items/{itemId}/assign": {
+      "post": { "responses": { "200": { "description": "Worker assigned" } } }
+    },
+    "/orders/{orderId}/issues": {
+      "post": {
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "201": { "description": "Items issued" },
+          "422": { "description": "Payment required" }
+        }
+      }
+    },
+    "/reports/operational": {
+      "get": { "responses": { "200": { "description": "Operational report or CSV" } } }
+    },
+    "/reports/financial": {
+      "get": { "responses": { "200": { "description": "Financial report or CSV" } } }
+    },
+    "/audit": { "get": { "responses": { "200": { "description": "Audit records" } } } },
+    "/notifications": {
+      "get": { "responses": { "200": { "description": "Internal notifications" } } }
+    }
+  }
+}
