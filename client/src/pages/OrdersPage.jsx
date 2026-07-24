@@ -9,6 +9,10 @@ import {
   MeasurementEditor,
   ServiceAdder,
 } from '../features/orders/OrderItemControls.jsx'
+import {
+  canIssueWholeOrder,
+  remainingOrderItems,
+} from '../features/orders/issue-availability.js'
 import { OrderCreatePanel } from '../features/orders/OrderCreatePanel.jsx'
 import { OrderListPanel } from '../features/orders/OrderListPanel.jsx'
 import { OrderMetaEditor } from '../features/orders/OrderMetaEditor.jsx'
@@ -386,16 +390,15 @@ function OrderEditor({
   actionError,
   onChanged,
 }) {
-  const [selectedIssueIds, setSelectedIssueIds] = useState(null)
   const [issueReason, setIssueReason] = useState('')
   const [metaOpen, setMetaOpen] = useState(false)
   if (loading || !order) return <div className="empty-state compact">Загружаем…</div>
   const editable = order.status === 'draft'
   const readyItems = order.items?.filter((item) => item.status === 'ready') ?? []
-  const effectiveIssueIds =
-    selectedIssueIds === null
-      ? readyItems.map((item) => item.id)
-      : selectedIssueIds.filter((id) => readyItems.some((item) => item.id === id))
+  const remainingItems = remainingOrderItems(order.items)
+  const issueActionsAvailable = !['draft', 'cancelled', 'issued'].includes(order.status)
+  const allRemainingReady = canIssueWholeOrder(order.items)
+  const issuingItemIds = issueOrder.isPending ? (issueOrder.variables?.itemIds ?? []) : []
   const debt = Number(order.totalAmount) - Number(order.paidAmount)
   const selectedPosition = nomenclature.find(
     (row) => row.id === itemForm.nomenclatureItemId,
@@ -700,25 +703,42 @@ function OrderEditor({
                     <span className="measurement-pending">Ожидает замера</span>
                   )}
                 </div>
-                <strong>{money(item.totalAmount)}</strong>
+                <div className="order-item-head-actions">
+                  <strong>{money(item.totalAmount)}</strong>
+                  {issueActionsAvailable && (
+                    <button
+                      type="button"
+                      className="secondary-button item-issue-button"
+                      disabled={
+                        item.status !== 'ready' ||
+                        issueOrder.isPending ||
+                        (debt > 0 && !issueReason.trim())
+                      }
+                      title={
+                        item.status === 'issued'
+                          ? 'Изделие уже выдано'
+                          : item.status !== 'ready'
+                            ? 'Изделие ещё не готово к выдаче'
+                            : debt > 0 && !issueReason.trim()
+                              ? 'Сначала укажите причину выдачи с долгом'
+                              : undefined
+                      }
+                      onClick={() =>
+                        issueOrder.mutate({
+                          itemIds: [item.id],
+                          reason: issueReason.trim(),
+                        })
+                      }
+                    >
+                      {item.status === 'issued'
+                        ? 'Изделие выдано'
+                        : issuingItemIds.includes(item.id)
+                          ? 'Выдаём…'
+                          : 'Выдать изделие'}
+                    </button>
+                  )}
+                </div>
               </div>
-              {item.status === 'ready' && (
-                <label className="issue-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={effectiveIssueIds.includes(item.id)}
-                    onChange={() => {
-                      const current = effectiveIssueIds
-                      setSelectedIssueIds(
-                        current.includes(item.id)
-                          ? current.filter((id) => id !== item.id)
-                          : [...current, item.id],
-                      )
-                    }}
-                  />
-                  Выдать эту позицию
-                </label>
-              )}
               <details
                 className="order-item-details"
                 open={
@@ -829,13 +849,18 @@ function OrderEditor({
         <div className="empty-state compact">Добавьте первую позицию из номенклатуры</div>
       )}
       {actionError && <p className="form-error">{actionError}</p>}
-      {!!readyItems.length && (
+      {issueActionsAvailable && !!remainingItems.length && (
         <section className="issue-panel">
           <div>
             <p className="eyebrow">Выдача</p>
             <h3>
-              Выбрано {effectiveIssueIds.length} из {readyItems.length} готовых позиций
+              Готово {readyItems.length} из {remainingItems.length} изделий
             </h3>
+            {!allRemainingReady && (
+              <small>
+                Выдать весь заказ можно, когда будут готовы все оставшиеся изделия.
+              </small>
+            )}
           </div>
           {debt > 0 && (
             <label>
@@ -851,18 +876,24 @@ function OrderEditor({
           <button
             className="primary-button"
             disabled={
-              !effectiveIssueIds.length ||
+              !allRemainingReady ||
               (debt > 0 && !issueReason.trim()) ||
               issueOrder.isPending
             }
-            onClick={() =>
-              issueOrder.mutate({
-                itemIds: effectiveIssueIds,
-                reason: issueReason.trim(),
-              })
-            }
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Выдать весь заказ ${order.displayNumber} — ${remainingItems.length} изд.?`,
+                )
+              ) {
+                issueOrder.mutate({
+                  itemIds: remainingItems.map((item) => item.id),
+                  reason: issueReason.trim(),
+                })
+              }
+            }}
           >
-            Подтвердить выдачу
+            Выдать весь заказ
           </button>
           {issueOrder.error && <p className="form-error">{apiError(issueOrder.error)}</p>}
         </section>

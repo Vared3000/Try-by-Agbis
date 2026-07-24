@@ -1522,17 +1522,13 @@ textarea:focus {
     min-width: 0;
   }
 }
-.issue-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin: 0.65rem 0;
-  color: #286249;
+.order-item-head-actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.65rem;
 }
-.issue-checkbox input {
-  width: 16px;
-  height: 16px;
-  padding: 0;
+.item-issue-button {
+  min-width: 175px;
 }
 .issue-panel {
   display: grid;
@@ -1544,6 +1540,12 @@ textarea:focus {
 }
 .issue-panel h3 {
   margin: 0.25rem 0 0;
+}
+.issue-panel small {
+  display: block;
+  max-width: 560px;
+  margin-top: 0.35rem;
+  color: #6d7f75;
 }
 .issue-panel .primary-button {
   justify-self: start;
