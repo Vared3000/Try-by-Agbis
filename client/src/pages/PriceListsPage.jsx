@@ -10,6 +10,7 @@ export function PriceListsPage() {
   const [listForm, setListForm] = useState({
     name: '',
     validFrom: new Date().toISOString().slice(0, 10),
+    validTo: '',
     status: 'active',
   })
   const [itemForm, setItemForm] = useState({
@@ -17,6 +18,7 @@ export function PriceListsPage() {
     garmentTypeId: '',
     price: '',
   })
+  const [editingPrice, setEditingPrice] = useState({ id: '', price: '' })
   const lists = useQuery({
     queryKey: ['price-lists'],
     queryFn: async () => (await apiClient.get('/price-lists')).data.data,
@@ -39,7 +41,13 @@ export function PriceListsPage() {
     queryFn: async () => (await apiClient.get('/catalog/garment-types')).data.data,
   })
   const createList = useMutation({
-    mutationFn: async () => (await apiClient.post('/price-lists', listForm)).data.data,
+    mutationFn: async () =>
+      (
+        await apiClient.post('/price-lists', {
+          ...listForm,
+          validTo: listForm.validTo || null,
+        })
+      ).data.data,
     onSuccess: (row) => {
       setSelectedId(row.id)
       setListForm((value) => ({ ...value, name: '' }))
@@ -58,6 +66,39 @@ export function PriceListsPage() {
       queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
     },
   })
+  const updateList = useMutation({
+    mutationFn: (status) => apiClient.patch(`/price-lists/${effectiveId}`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['price-lists'] })
+      queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
+    },
+  })
+  const archiveList = useMutation({
+    mutationFn: () => apiClient.delete(`/price-lists/${effectiveId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['price-lists'] })
+      queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
+    },
+  })
+  const updatePrice = useMutation({
+    mutationFn: () =>
+      apiClient.patch(`/price-lists/${effectiveId}/items/${editingPrice.id}`, {
+        price: String(
+          Math.round(Number(String(editingPrice.price).replace(',', '.')) * 100),
+        ),
+      }),
+    onSuccess: () => {
+      setEditingPrice({ id: '', price: '' })
+      queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
+    },
+  })
+  const removePrice = useMutation({
+    mutationFn: (itemId) =>
+      apiClient.delete(`/price-lists/${effectiveId}/items/${itemId}`),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] }),
+  })
+  const editable = detail.data?.status !== 'inactive'
 
   return (
     <div className="workspace-grid price-layout">
@@ -109,6 +150,17 @@ export function PriceListsPage() {
               <option value="active">Активный</option>
             </select>
           </label>
+          <label className="field-wide">
+            Действует до
+            <input
+              type="date"
+              value={listForm.validTo}
+              min={listForm.validFrom}
+              onChange={(event) =>
+                setListForm((value) => ({ ...value, validTo: event.target.value }))
+              }
+            />
+          </label>
           {createList.error && (
             <p className="form-error field-wide">{apiError(createList.error)}</p>
           )}
@@ -123,7 +175,13 @@ export function PriceListsPage() {
             >
               <span>{row.name}</span>
               <small>
-                {row.validFrom} · {row.status}
+                {row.validFrom}
+                {row.validTo ? ` — ${row.validTo}` : ''} ·{' '}
+                {{
+                  draft: 'черновик',
+                  active: 'активный',
+                  inactive: 'неактивный',
+                }[row.status] || row.status}
               </small>
             </button>
           ))}
@@ -136,9 +194,38 @@ export function PriceListsPage() {
             <p className="eyebrow">Цены</p>
             <h2>{detail.data?.name || 'Выберите прайс-лист'}</h2>
           </div>
-          <span>{detail.data?.items?.length ?? 0} цен</span>
+          <div className="price-list-actions">
+            <span>{detail.data?.items?.length ?? 0} цен</span>
+            {detail.data?.status === 'draft' && (
+              <button
+                className="text-button"
+                disabled={updateList.isPending}
+                onClick={() => updateList.mutate('active')}
+              >
+                Активировать
+              </button>
+            )}
+            {detail.data?.status === 'inactive' && (
+              <button
+                className="text-button"
+                disabled={updateList.isPending}
+                onClick={() => updateList.mutate('draft')}
+              >
+                Вернуть в черновики
+              </button>
+            )}
+            {detail.data?.status === 'active' && (
+              <button
+                className="text-button danger"
+                disabled={archiveList.isPending}
+                onClick={() => archiveList.mutate()}
+              >
+                Отключить
+              </button>
+            )}
+          </div>
         </div>
-        {effectiveId && (
+        {effectiveId && editable && (
           <form
             className="inline-form price-form"
             onSubmit={(event) => {
@@ -147,7 +234,6 @@ export function PriceListsPage() {
             }}
           >
             <select
-              required
               value={itemForm.garmentTypeId}
               onChange={(event) =>
                 setItemForm((value) => ({
@@ -156,7 +242,7 @@ export function PriceListsPage() {
                 }))
               }
             >
-              <option value="">Тип изделия</option>
+              <option value="">Любое изделие</option>
               {(garments.data ?? []).map((row) => (
                 <option key={row.id} value={row.id}>
                   {row.name}
@@ -192,6 +278,8 @@ export function PriceListsPage() {
           </form>
         )}
         {addPrice.error && <p className="form-error">{apiError(addPrice.error)}</p>}
+        {updateList.error && <p className="form-error">{apiError(updateList.error)}</p>}
+        {archiveList.error && <p className="form-error">{apiError(archiveList.error)}</p>}
         <div className="data-list">
           {(detail.data?.items ?? []).map((row) => (
             <article key={row.id}>
@@ -199,10 +287,72 @@ export function PriceListsPage() {
                 <strong>{row.garmentType?.name || 'Любое изделие'}</strong>
                 <span>{row.service?.name}</span>
               </div>
-              <strong>{money(row.price)}</strong>
+              {editingPrice.id === row.id ? (
+                <form
+                  className="price-row-editor"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    updatePrice.mutate()
+                  }}
+                >
+                  <input
+                    required
+                    autoFocus
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editingPrice.price}
+                    onChange={(event) =>
+                      setEditingPrice((value) => ({
+                        ...value,
+                        price: event.target.value,
+                      }))
+                    }
+                    aria-label={`Цена для ${row.service?.name}`}
+                  />
+                  <button className="text-button" disabled={updatePrice.isPending}>
+                    Сохранить
+                  </button>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => setEditingPrice({ id: '', price: '' })}
+                  >
+                    Отмена
+                  </button>
+                </form>
+              ) : (
+                <div className="price-row-actions">
+                  <strong>{money(row.price)}</strong>
+                  {editable && (
+                    <>
+                      <button
+                        className="text-button"
+                        onClick={() =>
+                          setEditingPrice({
+                            id: row.id,
+                            price: String(Number(row.price) / 100),
+                          })
+                        }
+                      >
+                        Изменить
+                      </button>
+                      <button
+                        className="text-button danger"
+                        disabled={removePrice.isPending}
+                        onClick={() => removePrice.mutate(row.id)}
+                      >
+                        Удалить
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </article>
           ))}
         </div>
+        {updatePrice.error && <p className="form-error">{apiError(updatePrice.error)}</p>}
+        {removePrice.error && <p className="form-error">{apiError(removePrice.error)}</p>}
       </section>
     </div>
   )

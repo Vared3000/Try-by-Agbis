@@ -205,6 +205,20 @@
     "/payments/{paymentId}/refunds": {
       "post": { "responses": { "201": { "description": "Refund confirmed" } } }
     },
+    "/price-lists/{id}/items/{itemId}": {
+      "patch": {
+        "responses": {
+          "200": { "description": "Price updated" },
+          "409": { "description": "Price list is inactive" }
+        }
+      },
+      "delete": {
+        "responses": {
+          "200": { "description": "Price deleted" },
+          "409": { "description": "Price list is inactive" }
+        }
+      }
+    },
     "/production/items/scan/{scanCode}": {
       "get": { "responses": { "200": { "description": "Scanned item" } } }
     },

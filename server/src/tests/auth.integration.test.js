@@ -523,21 +523,47 @@ integration('auth API with PostgreSQL', () => {
       })
       .expect(201)
 
-    await request(app)
+    const priceItem = await request(app)
       .post(`/api/v1/price-lists/${priceList.body.data.id}/items`)
       .set('Authorization', authorization)
       .send({
         serviceId: service.body.data.id,
         garmentTypeId: garment.body.data.id,
-        price: '123400',
+        price: '120000',
       })
       .expect(201)
+
+    const updatedPrice = await request(app)
+      .patch(
+        `/api/v1/price-lists/${priceList.body.data.id}/items/${priceItem.body.data.id}`,
+      )
+      .set('Authorization', authorization)
+      .send({ price: '123400' })
+      .expect(200)
+    expect(updatedPrice.body.data.price).toBe('123400')
+
+    const genericPrice = await request(app)
+      .post(`/api/v1/price-lists/${priceList.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({
+        serviceId: service.body.data.id,
+        garmentTypeId: null,
+        price: '99900',
+      })
+      .expect(201)
+    await request(app)
+      .delete(
+        `/api/v1/price-lists/${priceList.body.data.id}/items/${genericPrice.body.data.id}`,
+      )
+      .set('Authorization', authorization)
+      .expect(200)
 
     const details = await request(app)
       .get(`/api/v1/price-lists/${priceList.body.data.id}`)
       .set('Authorization', authorization)
       .expect(200)
     expect(details.body.data.items).toHaveLength(1)
+    expect(details.body.data.items[0].price).toBe('123400')
     expect(details.body.data.items[0].service.organizationId).toBe(ids.organization)
   })
 

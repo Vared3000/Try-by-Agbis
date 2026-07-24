@@ -424,6 +424,24 @@ textarea:focus {
 .price-form {
   grid-template-columns: 1fr 1fr 0.7fr auto;
 }
+.price-list-actions,
+.price-row-actions,
+.price-row-editor {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem !important;
+}
+.price-list-actions > span {
+  color: #7b8981;
+  font-size: 0.8rem;
+}
+.price-row-editor input {
+  width: 120px;
+}
+.price-row-actions strong {
+  margin-right: 0.35rem;
+}
 .item-form {
   grid-template-columns: repeat(3, 0.8fr) 1.3fr auto;
   padding: 1rem;

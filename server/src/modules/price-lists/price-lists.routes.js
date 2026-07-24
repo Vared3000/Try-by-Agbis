@@ -21,6 +21,8 @@ const itemInput = z.object({
     .transform(String),
 })
 
+const itemPriceInput = itemInput.pick({ price: true })
+
 const success = (data, correlationId) => ({
   data,
   meta: { correlationId },
@@ -48,6 +50,24 @@ export function createPriceListsRouter({ sequelize, env }) {
       ...options,
     })
     if (!row) throw missing()
+    return row
+  }
+
+  const findPriceListItem = async (priceListId, itemId, organizationId) => {
+    const row = await PriceListItem.findOne({
+      where: {
+        id: itemId,
+        priceListId,
+        organizationId,
+      },
+    })
+    if (!row) {
+      throw new ApiError({
+        status: 404,
+        code: 'PRICE_LIST_ITEM_NOT_FOUND',
+        message: 'Строка прайс-листа не найдена',
+      })
+    }
     return row
   }
 
@@ -98,6 +118,13 @@ export function createPriceListsRouter({ sequelize, env }) {
   router.post('/:id/items', requirePermission('price_lists.manage'), async (req, res) => {
     const input = itemInput.parse(req.body)
     const priceList = await findPriceList(req.params.id, req.auth.organizationId)
+    if (priceList.status === 'inactive') {
+      throw new ApiError({
+        status: 409,
+        code: 'PRICE_LIST_INACTIVE',
+        message: 'Неактивный прайс-лист нельзя изменять',
+      })
+    }
     const service = await Service.findOne({
       where: {
         id: input.serviceId,
@@ -128,6 +155,51 @@ export function createPriceListsRouter({ sequelize, env }) {
     })
     res.status(201).json(success(item, req.correlationId))
   })
+
+  router.patch(
+    '/:id/items/:itemId',
+    requirePermission('price_lists.manage'),
+    async (req, res) => {
+      const input = itemPriceInput.parse(req.body)
+      const priceList = await findPriceList(req.params.id, req.auth.organizationId)
+      if (priceList.status === 'inactive') {
+        throw new ApiError({
+          status: 409,
+          code: 'PRICE_LIST_INACTIVE',
+          message: 'Неактивный прайс-лист нельзя изменять',
+        })
+      }
+      const item = await findPriceListItem(
+        priceList.id,
+        req.params.itemId,
+        req.auth.organizationId,
+      )
+      await item.update(input)
+      res.json(success(item, req.correlationId))
+    },
+  )
+
+  router.delete(
+    '/:id/items/:itemId',
+    requirePermission('price_lists.manage'),
+    async (req, res) => {
+      const priceList = await findPriceList(req.params.id, req.auth.organizationId)
+      if (priceList.status === 'inactive') {
+        throw new ApiError({
+          status: 409,
+          code: 'PRICE_LIST_INACTIVE',
+          message: 'Неактивный прайс-лист нельзя изменять',
+        })
+      }
+      const item = await findPriceListItem(
+        priceList.id,
+        req.params.itemId,
+        req.auth.organizationId,
+      )
+      await item.destroy()
+      res.json(success({ deleted: true }, req.correlationId))
+    },
+  )
 
   router.delete('/:id', requirePermission('price_lists.manage'), async (req, res) => {
     const row = await findPriceList(req.params.id, req.auth.organizationId)
