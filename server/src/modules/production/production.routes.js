@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { Op } from 'sequelize'
 import { z } from 'zod'
 
 import { createAuthenticate } from '../../middlewares/authenticate.js'
@@ -18,9 +19,15 @@ const assignInput = z.object({
   workplaceId: z.string().uuid().nullable().optional(),
 })
 
-const success = (data, correlationId) => ({
+const queueQuery = z.object({
+  search: z.string().trim().max(100).optional(),
+  status: z.string().trim().max(32).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+})
+
+const success = (data, correlationId, meta = {}) => ({
   data,
-  meta: { correlationId },
+  meta: { correlationId, ...meta },
   error: null,
 })
 
@@ -55,6 +62,37 @@ export function createProductionRouter({ sequelize, env }) {
       transaction,
     })
 
+  const productionItemIncludes = (auth) => [
+    {
+      model: models.Order,
+      as: 'order',
+      required: true,
+      where: { branchId: { [Op.in]: auth.branchIds } },
+      attributes: ['id', 'displayNumber', 'branchId', 'dueAt', 'status'],
+      include: [
+        {
+          model: models.Client,
+          as: 'client',
+          attributes: ['id', 'fullName', 'phone'],
+        },
+      ],
+    },
+    {
+      model: models.NomenclatureItem,
+      as: 'nomenclature',
+      attributes: ['id', 'name', 'unit'],
+    },
+    {
+      model: models.GarmentType,
+      as: 'garmentType',
+      attributes: ['id', 'name'],
+    },
+    {
+      model: models.ItemStageHistory,
+      as: 'stageHistory',
+    },
+  ]
+
   router.get(
     '/production/routes',
     requirePermission('production.view'),
@@ -81,14 +119,53 @@ export function createProductionRouter({ sequelize, env }) {
   )
 
   router.get(
+    '/production/items',
+    requirePermission('production.view'),
+    async (req, res) => {
+      const input = queueQuery.parse(req.query)
+      const where = {
+        organizationId: req.auth.organizationId,
+        status: input.status || {
+          [Op.notIn]: ['draft', 'issued', 'rejected', 'cancelled'],
+        },
+      }
+      if (input.search) {
+        where[Op.or] = [
+          { scanCode: { [Op.iLike]: `%${input.search}%` } },
+          { description: { [Op.iLike]: `%${input.search}%` } },
+          { '$order.displayNumber$': { [Op.iLike]: `%${input.search}%` } },
+          { '$order.client.fullName$': { [Op.iLike]: `%${input.search}%` } },
+          { '$order.client.phone$': { [Op.iLike]: `%${input.search}%` } },
+          { '$nomenclature.name$': { [Op.iLike]: `%${input.search}%` } },
+          { '$garmentType.name$': { [Op.iLike]: `%${input.search}%` } },
+        ]
+      }
+      const result = await models.OrderItem.findAndCountAll({
+        where,
+        include: productionItemIncludes(req.auth),
+        order: [
+          [{ model: models.Order, as: 'order' }, 'dueAt', 'ASC'],
+          ['createdAt', 'ASC'],
+        ],
+        limit: input.limit,
+        distinct: true,
+        subQuery: false,
+      })
+      res.json(
+        success(result.rows, req.correlationId, {
+          total: result.count,
+          limit: input.limit,
+        }),
+      )
+    },
+  )
+
+  router.get(
     '/production/items/scan/:scanCode',
     requirePermission('production.view'),
     async (req, res) => {
       const item = await loadItem({ scanCode: req.params.scanCode }, req.auth, {
-        include: [
-          { model: models.Order, as: 'order', required: true },
-          { model: models.ItemStageHistory, as: 'stageHistory' },
-        ],
+        include: productionItemIncludes(req.auth),
       })
       res.json(success(item, req.correlationId))
     },

@@ -1,23 +1,39 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
 import { apiClient } from '../api/client.js'
 import { apiError } from './workspace-utils.js'
 
 export function ProductionPage() {
+  const queryClient = useQueryClient()
   const [scanCode, setScanCode] = useState('')
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('')
   const [item, setItem] = useState(null)
   const [error, setError] = useState('')
   const routes = useQuery({
     queryKey: ['production-routes'],
     queryFn: async () => (await apiClient.get('/production/routes')).data.data,
   })
+  const queue = useQuery({
+    queryKey: ['production-items', search, status],
+    queryFn: async () =>
+      (
+        await apiClient.get('/production/items', {
+          params: {
+            ...(search ? { search } : {}),
+            ...(status ? { status } : {}),
+          },
+        })
+      ).data,
+  })
 
   const scan = async (code = scanCode) => {
+    if (!code.trim()) return
     setError('')
     try {
       const response = await apiClient.get(
-        `/production/items/scan/${encodeURIComponent(code)}`,
+        `/production/items/scan/${encodeURIComponent(code.trim())}`,
       )
       setItem(response.data.data)
     } catch (requestError) {
@@ -31,7 +47,10 @@ export function ProductionPage() {
         stageId,
         action,
       }),
-    onSuccess: () => scan(item.scanCode),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['production-items'] })
+      scan(item.scanCode)
+    },
   })
   const route = routes.data?.find((row) => row.id === item?.routeId)
   const histories = useMemo(
@@ -72,6 +91,75 @@ export function ProductionPage() {
           <button className="primary-button">Найти изделие</button>
         </form>
         {error && <p className="form-error">{error}</p>}
+      </section>
+
+      <section className="panel production-queue">
+        <div className="panel-title">
+          <div>
+            <p className="eyebrow">Очередь</p>
+            <h2>Изделия в производстве</h2>
+          </div>
+          <span>{queue.data?.meta?.total ?? 0} позиций</span>
+        </div>
+        <div className="production-filters">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Заказ, клиент, телефон, изделие или код"
+          />
+          <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="">Все рабочие статусы</option>
+            <option value="accepted">Ожидают запуска</option>
+            <option value="cleaning">Чистка</option>
+            <option value="quality_control">Контроль качества</option>
+            <option value="packing">Упаковка</option>
+            <option value="rework">Доработка</option>
+            <option value="ready">Готовы к выдаче</option>
+          </select>
+        </div>
+        {queue.isPending ? (
+          <div className="empty-state compact">Загружаем очередь…</div>
+        ) : queue.error ? (
+          <p className="form-error">{apiError(queue.error)}</p>
+        ) : !queue.data?.data?.length ? (
+          <div className="empty-state compact">В выбранном разделе изделий нет</div>
+        ) : (
+          <div className="production-queue-list">
+            {queue.data.data.map((row) => (
+              <button
+                key={row.id}
+                className={item?.id === row.id ? 'active' : ''}
+                onClick={() => {
+                  setScanCode(row.scanCode)
+                  scan(row.scanCode)
+                }}
+              >
+                <div>
+                  <strong>
+                    {row.description ||
+                      row.nomenclature?.name ||
+                      row.garmentType?.name ||
+                      'Изделие'}
+                  </strong>
+                  <span>
+                    {row.order?.displayNumber} · {row.order?.client?.fullName}
+                  </span>
+                  <small>{row.scanCode}</small>
+                </div>
+                <div className="queue-status">
+                  <span className={`status-pill status-${row.status}`}>
+                    {statusLabel(row.status)}
+                  </span>
+                  {row.order?.dueAt && (
+                    <small className={isOverdue(row.order.dueAt) ? 'overdue' : ''}>
+                      Срок {new Date(row.order.dueAt).toLocaleString('ru-RU')}
+                    </small>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {item && (
@@ -168,4 +256,21 @@ export function ProductionPage() {
       )}
     </div>
   )
+}
+
+function statusLabel(status) {
+  return (
+    {
+      accepted: 'Ожидает запуска',
+      cleaning: 'Чистка',
+      quality_control: 'Контроль качества',
+      packing: 'Упаковка',
+      rework: 'Доработка',
+      ready: 'Готово',
+    }[status] || status.replaceAll('_', ' ')
+  )
+}
+
+function isOverdue(value) {
+  return new Date(value).getTime() < Date.now()
 }

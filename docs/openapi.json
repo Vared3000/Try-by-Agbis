@@ -208,6 +208,13 @@
     "/production/items/scan/{scanCode}": {
       "get": { "responses": { "200": { "description": "Scanned item" } } }
     },
+    "/production/items": {
+      "get": {
+        "responses": {
+          "200": { "description": "Filtered production queue" }
+        }
+      }
+    },
     "/production/routes": {
       "get": {
         "responses": {

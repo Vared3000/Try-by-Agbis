@@ -782,11 +782,21 @@ integration('auth API with PostgreSQL', () => {
       order: [['createdAt', 'DESC']],
     })
 
+    const queue = await request(app)
+      .get('/api/v1/production/items')
+      .query({ search: item.scanCode })
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(queue.body.meta.total).toBe(1)
+    expect(queue.body.data[0].id).toBe(item.id)
+    expect(queue.body.data[0].order.client.fullName).toBeTruthy()
+
     const scan = await request(app)
       .get(`/api/v1/production/items/scan/${item.scanCode}`)
       .set('Authorization', authorization)
       .expect(200)
     expect(scan.body.data.id).toBe(item.id)
+    expect(scan.body.data.order.client.fullName).toBeTruthy()
 
     const transition = (stageId, action) =>
       request(app)
@@ -795,6 +805,12 @@ integration('auth API with PostgreSQL', () => {
         .send({ stageId, action, workplaceId: ids.workplace })
 
     await transition(ids.cleaningStage, 'start').expect(200)
+    const cleaningQueue = await request(app)
+      .get('/api/v1/production/items')
+      .query({ search: item.scanCode, status: 'cleaning' })
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(cleaningQueue.body.data[0].id).toBe(item.id)
     await request(app)
       .post(`/api/v1/order-items/${item.id}/assign`)
       .set('Authorization', authorization)

@@ -920,6 +920,61 @@ textarea:focus {
   word-break: break-all;
   color: #416557;
 }
+.production-filters {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(190px, 0.35fr);
+  gap: 0.65rem;
+  margin-bottom: 0.9rem;
+}
+.production-queue-list {
+  display: grid;
+  gap: 0.55rem;
+}
+.production-queue-list > button {
+  width: 100%;
+  border: 1px solid #e1e9e4;
+  border-radius: 12px;
+  background: #fbfdfb;
+  padding: 0.8rem 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.production-queue-list > button:hover,
+.production-queue-list > button.active {
+  border-color: #87a678;
+  background: #f2f8f0;
+}
+.production-queue-list > button > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+.production-queue-list span,
+.production-queue-list small {
+  color: #6d7e75;
+}
+.queue-status {
+  display: grid;
+  justify-items: end;
+  gap: 0.35rem;
+  min-width: 190px;
+}
+.queue-status .overdue {
+  color: #b64138;
+  font-weight: 700;
+}
+.status-rework {
+  background: #fff1ee;
+  color: #98443b !important;
+}
+.status-ready {
+  background: #e7f8ed;
+  color: #176842 !important;
+}
 .production-route {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -967,6 +1022,20 @@ textarea:focus {
   display: flex;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+  .production-filters {
+    grid-template-columns: 1fr;
+  }
+  .production-queue-list > button {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .queue-status {
+    justify-items: start;
+    min-width: 0;
+  }
 }
 .issue-checkbox {
   display: flex;
