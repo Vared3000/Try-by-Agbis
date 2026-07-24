@@ -679,6 +679,17 @@ integration('auth API with PostgreSQL', () => {
       .expect('Content-Type', /png/)
       .expect(200)
     expect(Buffer.compare(downloaded.body, png)).toBe(0)
+
+    const orderWithFiles = await request(app)
+      .get(`/api/v1/orders/${order.body.data.id}`)
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(orderWithFiles.body.data.items[0].files[0].id).toBe(uploaded.body.data.id)
+
+    await request(app)
+      .delete(`/api/v1/files/${uploaded.body.data.id}`)
+      .set('Authorization', authorization)
+      .expect(409)
   })
 
   it('processes idempotent cash payment, bounded refund and shift closing', async () => {
@@ -926,5 +937,40 @@ integration('auth API with PostgreSQL', () => {
     expect(details.body.data.status).toBe('accepted')
     expect(details.body.data.totalAmount).toBe('354000')
     expect(details.body.data.items[0].nomenclature.name).toBe('Integration wool carpet')
+
+    for (const stageId of [ids.cleaningStage, ids.qualityStage, ids.packingStage]) {
+      await request(app)
+        .post(`/api/v1/order-items/${item.body.data.id}/transition`)
+        .set('Authorization', authorization)
+        .send({ stageId, action: 'start', workplaceId: ids.workplace })
+        .expect(200)
+      await request(app)
+        .post(`/api/v1/order-items/${item.body.data.id}/transition`)
+        .set('Authorization', authorization)
+        .send({ stageId, action: 'complete', workplaceId: ids.workplace })
+        .expect(200)
+    }
+
+    const issueWithDebtPermission = await sequelize.models.Permission.findOne({
+      where: { code: 'orders.issue_with_debt' },
+    })
+    await sequelize.models.RolePermission.create({
+      id: randomUUID(),
+      organizationId: ids.organization,
+      roleId: ids.role,
+      permissionId: issueWithDebtPermission.id,
+    })
+    await request(app)
+      .post(`/api/v1/orders/${order.body.data.id}/issues`)
+      .set('Authorization', authorization)
+      .set('Idempotency-Key', `issue-area-${suffix}`)
+      .send({
+        itemIds: [item.body.data.id],
+        paymentOverrideReason: 'Integration manager approval',
+      })
+      .expect(201)
+
+    const issuedOrder = await sequelize.models.Order.findByPk(order.body.data.id)
+    expect(issuedOrder.status).toBe('issued')
   })
 })

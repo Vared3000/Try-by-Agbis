@@ -159,5 +159,36 @@ export function createFilesRouter({ sequelize, env }) {
     res.send(buffer)
   })
 
+  router.delete('/:id', requirePermission('files.upload'), async (req, res) => {
+    const file = await File.findOne({
+      where: { id: req.params.id, organizationId: req.auth.organizationId },
+      include: [
+        {
+          model: OrderItem,
+          as: 'orderItem',
+          required: true,
+          include: [{ model: Order, as: 'order', required: true }],
+        },
+      ],
+    })
+    if (!file || !req.auth.branchIds.includes(file.orderItem.order.branchId)) {
+      throw new ApiError({
+        status: 404,
+        code: 'FILE_NOT_FOUND',
+        message: 'Файл не найден',
+      })
+    }
+    if (file.orderItem.order.status !== 'draft') {
+      throw new ApiError({
+        status: 409,
+        code: 'FILE_DELETE_NOT_ALLOWED',
+        message: 'Фотографии принятого заказа нельзя удалить',
+      })
+    }
+    await storage.delete(file.storageKey)
+    await file.destroy()
+    res.json(success({ deleted: true }, req.correlationId))
+  })
+
   return router
 }

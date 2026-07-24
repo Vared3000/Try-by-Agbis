@@ -121,6 +121,18 @@ export function createOrdersRouter({ sequelize, env }) {
           as: 'contaminations',
           include: [{ model: models.Contamination, as: 'contamination' }],
         },
+        {
+          model: models.File,
+          as: 'files',
+          attributes: [
+            'id',
+            'orderItemId',
+            'originalName',
+            'mimeType',
+            'size',
+            'createdAt',
+          ],
+        },
       ],
     },
   ]

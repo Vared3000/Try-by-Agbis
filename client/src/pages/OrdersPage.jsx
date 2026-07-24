@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { apiClient } from '../api/client.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
@@ -176,6 +176,22 @@ export function OrdersPage() {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
     },
   })
+  const issueOrder = useMutation({
+    mutationFn: ({ itemIds, reason }) =>
+      apiClient.post(
+        `/orders/${selectedOrderId}/issues`,
+        {
+          itemIds,
+          paymentOverrideReason: reason || null,
+        },
+        { headers: { 'Idempotency-Key': crypto.randomUUID() } },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+    },
+  })
 
   const openDocument = async (url, type) => {
     setActionError('')
@@ -316,6 +332,7 @@ export function OrdersPage() {
           </div>
         ) : (
           <OrderEditor
+            key={selectedOrderId}
             order={order.data}
             loading={order.isPending}
             garments={garments.data ?? []}
@@ -331,6 +348,7 @@ export function OrdersPage() {
             removeItem={removeItem}
             acceptOrder={acceptOrder}
             cancelOrder={cancelOrder}
+            issueOrder={issueOrder}
             onOpenDocument={openDocument}
             actionError={actionError}
             onChanged={() => {
@@ -416,12 +434,21 @@ function OrderEditor({
   removeItem,
   acceptOrder,
   cancelOrder,
+  issueOrder,
   onOpenDocument,
   actionError,
   onChanged,
 }) {
+  const [selectedIssueIds, setSelectedIssueIds] = useState(null)
+  const [issueReason, setIssueReason] = useState('')
   if (loading || !order) return <div className="empty-state compact">Загружаем…</div>
   const editable = order.status === 'draft'
+  const readyItems = order.items?.filter((item) => item.status === 'ready') ?? []
+  const effectiveIssueIds =
+    selectedIssueIds === null
+      ? readyItems.map((item) => item.id)
+      : selectedIssueIds.filter((id) => readyItems.some((item) => item.id === id))
+  const debt = Number(order.totalAmount) - Number(order.paidAmount)
   const selectedPosition = nomenclature.find(
     (row) => row.id === itemForm.nomenclatureItemId,
   )
@@ -441,10 +468,16 @@ function OrderEditor({
           <span className="status-pill">{order.status}</span>
           <h2>{order.displayNumber}</h2>
           <p>{order.client?.fullName}</p>
+          {order.dueAt && (
+            <p>Срок готовности: {new Date(order.dueAt).toLocaleString('ru-RU')}</p>
+          )}
+          {order.notes && <p>Комментарий: {order.notes}</p>}
         </div>
         <div className="order-total">
           <span>Итого</span>
           <strong>{money(order.totalAmount)}</strong>
+          <small>Оплачено: {money(order.paidAmount)}</small>
+          {debt > 0 && <small className="debt-text">Долг: {money(debt)}</small>}
         </div>
       </div>
 
@@ -668,6 +701,23 @@ function OrderEditor({
               </div>
               <strong>{money(item.totalAmount)}</strong>
             </div>
+            {item.status === 'ready' && (
+              <label className="issue-checkbox">
+                <input
+                  type="checkbox"
+                  checked={effectiveIssueIds.includes(item.id)}
+                  onChange={() => {
+                    const current = effectiveIssueIds
+                    setSelectedIssueIds(
+                      current.includes(item.id)
+                        ? current.filter((id) => id !== item.id)
+                        : [...current, item.id],
+                    )
+                  }}
+                />
+                Выдать эту позицию
+              </label>
+            )}
             {item.description && <p>{item.description}</p>}
             {item.nomenclature && (
               <div className="item-measurements">
@@ -712,6 +762,7 @@ function OrderEditor({
                 </div>
               ))}
             </div>
+            <ItemPhotos item={item} editable={editable} onChanged={onChanged} />
             {editable && !item.nomenclatureItemId && (
               <ServiceAdder item={item} prices={prices} onChanged={onChanged} />
             )}
@@ -743,6 +794,44 @@ function OrderEditor({
         <div className="empty-state compact">Добавьте первую позицию из номенклатуры</div>
       )}
       {actionError && <p className="form-error">{actionError}</p>}
+      {!!readyItems.length && (
+        <section className="issue-panel">
+          <div>
+            <p className="eyebrow">Выдача</p>
+            <h3>
+              Выбрано {effectiveIssueIds.length} из {readyItems.length} готовых позиций
+            </h3>
+          </div>
+          {debt > 0 && (
+            <label>
+              Причина выдачи с долгом {money(debt)}
+              <input
+                required
+                value={issueReason}
+                onChange={(event) => setIssueReason(event.target.value)}
+                placeholder="Например, разрешение руководителя"
+              />
+            </label>
+          )}
+          <button
+            className="primary-button"
+            disabled={
+              !effectiveIssueIds.length ||
+              (debt > 0 && !issueReason.trim()) ||
+              issueOrder.isPending
+            }
+            onClick={() =>
+              issueOrder.mutate({
+                itemIds: effectiveIssueIds,
+                reason: issueReason.trim(),
+              })
+            }
+          >
+            Подтвердить выдачу
+          </button>
+          {issueOrder.error && <p className="form-error">{apiError(issueOrder.error)}</p>}
+        </section>
+      )}
       <div className="order-actions">
         {editable ? (
           <button
@@ -784,6 +873,91 @@ function OrderEditor({
         {acceptOrder.error && <p className="form-error">{apiError(acceptOrder.error)}</p>}
       </div>
     </div>
+  )
+}
+
+function ItemPhotos({ item, editable, onChanged }) {
+  const upload = useMutation({
+    mutationFn: (file) => {
+      const formData = new FormData()
+      formData.append('orderItemId', item.id)
+      formData.append('file', file)
+      return apiClient.post('/files', formData)
+    },
+    onSuccess: onChanged,
+  })
+  const remove = useMutation({
+    mutationFn: (fileId) => apiClient.delete(`/files/${fileId}`),
+    onSuccess: onChanged,
+  })
+
+  return (
+    <div className="item-photos">
+      <div className="item-photos-head">
+        <strong>Фотографии</strong>
+        <span>{item.files?.length ?? 0}</span>
+      </div>
+      <div className="photo-grid">
+        {(item.files ?? []).map((file) => (
+          <div key={file.id} className="photo-card">
+            <ProtectedImage file={file} />
+            <small title={file.originalName}>{file.originalName}</small>
+            {editable && (
+              <button
+                className="text-button danger"
+                disabled={remove.isPending}
+                onClick={() => remove.mutate(file.id)}
+              >
+                Удалить
+              </button>
+            )}
+          </div>
+        ))}
+        {editable && (
+          <label className="photo-upload">
+            <span>＋</span>
+            Добавить фото
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={upload.isPending}
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) upload.mutate(file)
+                event.target.value = ''
+              }}
+            />
+          </label>
+        )}
+      </div>
+      {upload.error && <p className="form-error">{apiError(upload.error)}</p>}
+      {remove.error && <p className="form-error">{apiError(remove.error)}</p>}
+    </div>
+  )
+}
+
+function ProtectedImage({ file }) {
+  const [source, setSource] = useState('')
+  useEffect(() => {
+    let active = true
+    let objectUrl = ''
+    apiClient
+      .get(`/files/${file.id}`, { responseType: 'blob' })
+      .then((response) => {
+        objectUrl = URL.createObjectURL(response.data)
+        if (active) setSource(objectUrl)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [file.id])
+
+  return source ? (
+    <img src={source} alt={file.originalName} />
+  ) : (
+    <span className="photo-loading">Фото</span>
   )
 }
 

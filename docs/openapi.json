@@ -184,6 +184,13 @@
           "200": { "description": "Protected file bytes" },
           "404": { "description": "Not found" }
         }
+      },
+      "delete": {
+        "responses": {
+          "200": { "description": "Draft order photo deleted" },
+          "404": { "description": "Not found" },
+          "409": { "description": "Accepted order photos are immutable" }
+        }
       }
     },
     "/cash-shifts": {
