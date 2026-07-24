@@ -61,6 +61,11 @@ const serviceInput = z.object({
     .transform(String),
 })
 
+const measurementInput = z.object({
+  length: decimalInput,
+  width: decimalInput.optional(),
+})
+
 const success = (data, correlationId, meta = {}) => ({
   data,
   meta: { correlationId, ...meta },
@@ -545,28 +550,29 @@ export function createOrdersRouter({ sequelize, env }) {
       let area = null
       if (nomenclature) {
         if (nomenclature.unit === 'square_meter') {
-          if (!length || !width) {
+          if (Boolean(length) !== Boolean(width)) {
             throw new ApiError({
               status: 422,
-              code: 'ORDER_ITEM_DIMENSIONS_REQUIRED',
-              message: 'Для позиции в м² укажите длину и ширину',
+              code: 'ORDER_ITEM_DIMENSIONS_INCOMPLETE',
+              message: 'Укажите длину и ширину вместе или оставьте оба поля пустыми',
             })
           }
-          const lengthMillis = quantityMillis(length)
-          const widthMillis = quantityMillis(width)
-          measurementMillis = (lengthMillis * widthMillis + 500n) / 1000n
-          area = millisToDecimal(measurementMillis)
-          quantity = area
+          if (length && width) {
+            const lengthMillis = quantityMillis(length)
+            const widthMillis = quantityMillis(width)
+            measurementMillis = (lengthMillis * widthMillis + 500n) / 1000n
+            area = millisToDecimal(measurementMillis)
+            quantity = area
+          } else {
+            quantity = null
+          }
         } else if (nomenclature.unit === 'linear_meter') {
-          if (!length) {
-            throw new ApiError({
-              status: 422,
-              code: 'ORDER_ITEM_LENGTH_REQUIRED',
-              message: 'Укажите длину в погонных метрах',
-            })
+          if (length) {
+            measurementMillis = quantityMillis(length)
+            quantity = length
+          } else {
+            quantity = null
           }
-          measurementMillis = quantityMillis(length)
-          quantity = length
           width = null
         } else {
           quantity = quantity ?? '1'
@@ -685,6 +691,147 @@ export function createOrdersRouter({ sequelize, env }) {
     })
     res.status(201).json(success(item, req.correlationId))
   })
+
+  router.patch(
+    '/items/:itemId/measurements',
+    requirePermission('orders.update'),
+    async (req, res) => {
+      const input = measurementInput.parse(req.body)
+      const result = await sequelize.transaction(async (transaction) => {
+        const item = await models.OrderItem.findOne({
+          where: {
+            id: req.params.itemId,
+            organizationId: req.auth.organizationId,
+          },
+          include: [
+            { model: models.Order, as: 'order', required: true },
+            { model: models.NomenclatureItem, as: 'nomenclature', required: true },
+          ],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+        if (!item || !req.auth.branchIds.includes(item.order.branchId)) {
+          throw missing('ORDER_ITEM_NOT_FOUND', 'Изделие не найдено')
+        }
+        if (
+          ['issued', 'cancelled'].includes(item.order.status) ||
+          ['issued', 'cancelled'].includes(item.status)
+        ) {
+          throw new ApiError({
+            status: 409,
+            code: 'ORDER_ITEM_MEASUREMENT_LOCKED',
+            message: 'Размеры выданного или отменённого изделия изменить нельзя',
+          })
+        }
+        if (!['square_meter', 'linear_meter'].includes(item.nomenclature.unit)) {
+          throw new ApiError({
+            status: 422,
+            code: 'ORDER_ITEM_MEASUREMENT_UNSUPPORTED',
+            message: 'Для этой позиции размеры не используются в расчёте',
+          })
+        }
+
+        const lengthMillis = quantityMillis(input.length)
+        let measurementMillis = lengthMillis
+        let width = null
+        let area = null
+        let quantity = input.length
+        if (item.nomenclature.unit === 'square_meter') {
+          if (!input.width) {
+            throw new ApiError({
+              status: 422,
+              code: 'ORDER_ITEM_DIMENSIONS_INCOMPLETE',
+              message: 'Для позиции в м² укажите длину и ширину',
+            })
+          }
+          const widthMillis = quantityMillis(input.width)
+          measurementMillis = (lengthMillis * widthMillis + 500n) / 1000n
+          width = input.width
+          area = millisToDecimal(measurementMillis)
+          quantity = area
+        }
+
+        const measurementTotal =
+          (BigInt(item.unitPrice) * measurementMillis + 500n) / 1000n
+        const services = await models.OrderItemService.findAll({
+          where: {
+            orderItemId: item.id,
+            organizationId: req.auth.organizationId,
+          },
+          attributes: ['totalPrice'],
+          transaction,
+        })
+        const servicesTotal = services.reduce(
+          (total, service) => total + BigInt(service.totalPrice),
+          0n,
+        )
+        const nextItemTotal = measurementTotal + servicesTotal
+        const nextSubtotal =
+          BigInt(item.order.subtotalAmount) - BigInt(item.totalAmount) + nextItemTotal
+        const discountedTotal = nextSubtotal - BigInt(item.order.discountAmount)
+        const nextTotal = discountedTotal > 0n ? discountedTotal : 0n
+        if (nextTotal < BigInt(item.order.paidAmount)) {
+          throw new ApiError({
+            status: 409,
+            code: 'ORDER_TOTAL_BELOW_PAID',
+            message: 'Новая стоимость меньше уже оплаченной суммы',
+          })
+        }
+
+        await item.update(
+          {
+            length: input.length,
+            width,
+            area,
+            quantity,
+            totalAmount: nextItemTotal.toString(),
+            version: item.version + 1,
+          },
+          { transaction },
+        )
+        await item.order.update(
+          {
+            subtotalAmount: nextSubtotal.toString(),
+            totalAmount: nextTotal.toString(),
+            version: item.order.version + 1,
+          },
+          { transaction },
+        )
+        await models.AuditLog.create(
+          {
+            organizationId: req.auth.organizationId,
+            actorUserId: req.auth.userId,
+            action: 'order_item.measurement_update',
+            entityType: 'OrderItem',
+            entityId: item.id,
+            correlationId: req.correlationId,
+            before: {
+              length: item.previous('length'),
+              width: item.previous('width'),
+              area: item.previous('area'),
+              totalAmount: item.previous('totalAmount'),
+            },
+            after: {
+              length: item.length,
+              width: item.width,
+              area: item.area,
+              totalAmount: item.totalAmount,
+            },
+            occurredAt: new Date(),
+          },
+          { transaction },
+        )
+        return {
+          item,
+          order: {
+            subtotalAmount: item.order.subtotalAmount,
+            totalAmount: item.order.totalAmount,
+          },
+        }
+      })
+      res.json(success(result, req.correlationId))
+    },
+  )
 
   router.post(
     '/items/:itemId/services',

@@ -5,36 +5,37 @@
 
 ## Ресурсы MVP
 
-| Method    | URL                            | Назначение                    | Permission                    |
-| --------- | ------------------------------ | ----------------------------- | ----------------------------- |
-| POST      | `/auth/login`                  | открыть сессию                | public                        |
-| POST      | `/auth/refresh`                | ротировать refresh token      | session                       |
-| POST      | `/auth/logout`                 | закрыть сессию                | session                       |
-| GET       | `/auth/me`                     | текущий пользователь и права  | authenticated                 |
-| GET/POST  | `/clients`                     | поиск и создание клиента      | `clients.*`                   |
-| GET/PATCH | `/clients/{id}`                | карточка и изменение          | `clients.*`                   |
-| GET       | `/clients/{id}/orders`         | история заказов клиента       | `clients.view`, `orders.view` |
-| GET       | `/catalog/*`                   | справочники                   | `catalog.view`                |
-| GET       | `/services`                    | доступные услуги              | `catalog.view`                |
-| GET/POST  | `/price-lists`                 | прайс-листы                   | `price_lists.manage`          |
-| GET/POST  | `/orders`                      | список и черновик             | `orders.*`                    |
-| GET/PATCH | `/orders/{id}`                 | заказ/изменение черновика     | `orders.*`                    |
-| POST      | `/orders/{id}/accept`          | оформить и зафиксировать цены | `orders.create`               |
-| POST      | `/orders/{id}/cancel`          | контролируемая отмена         | `orders.cancel`               |
-| POST      | `/orders/{id}/items`           | добавить изделие              | `orders.update`               |
-| POST      | `/order-items/{id}/services`   | назначить услуги              | `orders.update`               |
-| POST      | `/order-items/{id}/transition` | производственный переход      | `production.transition`       |
-| POST      | `/orders/{id}/payments`        | принять оплату                | `payments.create`             |
-| POST      | `/payments/{id}/refunds`       | оформить возврат              | `payments.refund`             |
-| POST      | `/orders/{id}/issues`          | частично/полностью выдать     | `orders.issue`                |
-| GET       | `/orders/{id}/receipt`         | HTML-квитанция                | `orders.view`                 |
-| GET       | `/orders/{id}/labels`          | комплект бирок 55×55 мм       | `orders.view`                 |
-| GET       | `/order-items/{id}/labels`     | QR/Code 128 этикетка          | `orders.view`                 |
-| POST      | `/files`                       | загрузить фотографию          | `files.upload`                |
-| GET       | `/files/{id}`                  | получить защищённый файл      | `files.view`                  |
-| GET       | `/reports/operational`         | операционный отчёт            | `reports.operational`         |
-| GET       | `/reports/financial`           | финансовый отчёт              | `reports.financial`           |
-| GET       | `/audit`                       | журнал действий               | `audit.view`                  |
+| Method    | URL                              | Назначение                    | Permission                    |
+| --------- | -------------------------------- | ----------------------------- | ----------------------------- |
+| POST      | `/auth/login`                    | открыть сессию                | public                        |
+| POST      | `/auth/refresh`                  | ротировать refresh token      | session                       |
+| POST      | `/auth/logout`                   | закрыть сессию                | session                       |
+| GET       | `/auth/me`                       | текущий пользователь и права  | authenticated                 |
+| GET/POST  | `/clients`                       | поиск и создание клиента      | `clients.*`                   |
+| GET/PATCH | `/clients/{id}`                  | карточка и изменение          | `clients.*`                   |
+| GET       | `/clients/{id}/orders`           | история заказов клиента       | `clients.view`, `orders.view` |
+| GET       | `/catalog/*`                     | справочники                   | `catalog.view`                |
+| GET       | `/services`                      | доступные услуги              | `catalog.view`                |
+| GET/POST  | `/price-lists`                   | прайс-листы                   | `price_lists.manage`          |
+| GET/POST  | `/orders`                        | список и черновик             | `orders.*`                    |
+| GET/PATCH | `/orders/{id}`                   | заказ/изменение черновика     | `orders.*`                    |
+| POST      | `/orders/{id}/accept`            | оформить и зафиксировать цены | `orders.create`               |
+| POST      | `/orders/{id}/cancel`            | контролируемая отмена         | `orders.cancel`               |
+| POST      | `/orders/{id}/items`             | добавить изделие              | `orders.update`               |
+| POST      | `/order-items/{id}/services`     | назначить услуги              | `orders.update`               |
+| POST      | `/order-items/{id}/transition`   | производственный переход      | `production.transition`       |
+| POST      | `/orders/{id}/payments`          | принять оплату                | `payments.create`             |
+| POST      | `/payments/{id}/refunds`         | оформить возврат              | `payments.refund`             |
+| POST      | `/orders/{id}/issues`            | частично/полностью выдать     | `orders.issue`                |
+| GET       | `/orders/{id}/receipt`           | HTML-квитанция                | `orders.view`                 |
+| GET       | `/orders/{id}/labels`            | комплект бирок 55×55 мм       | `orders.view`                 |
+| GET       | `/order-items/{id}/labels`       | QR/Code 128 этикетка          | `orders.view`                 |
+| PATCH     | `/order-items/{id}/measurements` | внести фактический замер      | `orders.update`               |
+| POST      | `/files`                         | загрузить фотографию          | `files.upload`                |
+| GET       | `/files/{id}`                    | получить защищённый файл      | `files.view`                  |
+| GET       | `/reports/operational`           | операционный отчёт            | `reports.operational`         |
+| GET       | `/reports/financial`             | финансовый отчёт              | `reports.financial`           |
+| GET       | `/audit`                         | журнал действий               | `audit.view`                  |
 
 ## Идемпотентность
 

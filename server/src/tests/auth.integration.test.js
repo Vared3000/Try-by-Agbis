@@ -1013,13 +1013,12 @@ integration('auth API with PostgreSQL', () => {
       .set('Authorization', authorization)
       .send({
         nomenclatureItemId: position.body.data.id,
-        length: '2',
-        width: '3',
       })
       .expect(201)
-    expect(item.body.data.area).toBe('6.000')
+    expect(item.body.data.area).toBeNull()
+    expect(item.body.data.quantity).toBeNull()
     expect(item.body.data.unitPrice).toBe('59000')
-    expect(item.body.data.totalAmount).toBe('354000')
+    expect(item.body.data.totalAmount).toBe('0')
     expect(item.body.data.routeId).toBe(ids.productionRoute)
 
     await request(app)
@@ -1027,6 +1026,15 @@ integration('auth API with PostgreSQL', () => {
       .set('Authorization', authorization)
       .set('Idempotency-Key', `accept-area-${suffix}`)
       .expect(200)
+
+    const measurement = await request(app)
+      .patch(`/api/v1/order-items/${item.body.data.id}/measurements`)
+      .set('Authorization', authorization)
+      .send({ length: '2', width: '3' })
+      .expect(200)
+    expect(measurement.body.data.item.area).toBe('6.000')
+    expect(measurement.body.data.item.totalAmount).toBe('354000')
+    expect(measurement.body.data.order.totalAmount).toBe('354000')
 
     const details = await request(app)
       .get(`/api/v1/orders/${order.body.data.id}`)

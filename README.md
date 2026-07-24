@@ -39,6 +39,7 @@ CleanFlow ERP — самостоятельная веб-система упра�
 - [Отчёт по итерации 17](docs/iteration-17-report.md)
 - [Отчёт по итерации 18](docs/iteration-18-report.md)
 - [Отчёт по итерации 19](docs/iteration-19-report.md)
+- [Отчёт по итерации 20](docs/iteration-20-report.md)
 
 ## Работа с базой данных
 

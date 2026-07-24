@@ -79,4 +79,25 @@ describe('print templates', () => {
     expect(html).toContain('@page { size: 55mm 55mm; margin: 0; }')
     expect(html).toContain('Бирки RECEPTION-15-6: 1 шт.')
   })
+
+  it('marks an unmeasured square-meter position in the customer receipt', () => {
+    const html = renderReceiptHtml({
+      order: {
+        ...order,
+        items: [
+          {
+            ...order.items[0],
+            quantity: null,
+            area: null,
+            length: null,
+            width: null,
+            totalAmount: '0',
+          },
+        ],
+      },
+      organization: { name: 'Тестовая химчистка' },
+    })
+
+    expect(html).toContain('Ожидает замера')
+  })
 })

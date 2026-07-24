@@ -115,6 +115,97 @@ export function ChoiceChecks({ title, rows, selected, onChange }) {
   )
 }
 
+export function MeasurementEditor({ item, onChanged }) {
+  const isSquareMeter = item.nomenclature?.unit === 'square_meter'
+  const measured = isSquareMeter ? Boolean(item.area) : Boolean(item.quantity)
+  const [editing, setEditing] = useState(!measured)
+  const [length, setLength] = useState(item.length ?? '')
+  const [width, setWidth] = useState(item.width ?? '')
+  const saveMeasurement = useMutation({
+    mutationFn: () =>
+      apiClient.patch(`/order-items/${item.id}/measurements`, {
+        length,
+        width: isSquareMeter ? width : undefined,
+      }),
+    onSuccess: () => {
+      setEditing(false)
+      onChanged()
+    },
+  })
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="text-button measurement-edit-button"
+        onClick={() => setEditing(true)}
+      >
+        Изменить замер
+      </button>
+    )
+  }
+
+  return (
+    <form
+      className="measurement-editor"
+      onSubmit={(event) => {
+        event.preventDefault()
+        saveMeasurement.mutate()
+      }}
+    >
+      <div>
+        <strong>{measured ? 'Корректировка замера' : 'Внести замер'}</strong>
+        <small>Стоимость пересчитается автоматически по цене заказа.</small>
+      </div>
+      <label>
+        Длина, м
+        <input
+          required
+          type="number"
+          min="0.001"
+          step="0.001"
+          value={length}
+          onChange={(event) => setLength(event.target.value)}
+        />
+      </label>
+      {isSquareMeter && (
+        <label>
+          Ширина, м
+          <input
+            required
+            type="number"
+            min="0.001"
+            step="0.001"
+            value={width}
+            onChange={(event) => setWidth(event.target.value)}
+          />
+        </label>
+      )}
+      <div className="measurement-actions">
+        {measured && (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setLength(item.length ?? '')
+              setWidth(item.width ?? '')
+              setEditing(false)
+            }}
+          >
+            Отмена
+          </button>
+        )}
+        <button className="primary-button" disabled={saveMeasurement.isPending}>
+          {saveMeasurement.isPending ? 'Сохраняем…' : 'Сохранить замер'}
+        </button>
+      </div>
+      {saveMeasurement.error && (
+        <p className="form-error">{apiError(saveMeasurement.error)}</p>
+      )}
+    </form>
+  )
+}
+
 export function ServiceAdder({ item, prices, onChanged }) {
   const [serviceId, setServiceId] = useState('')
   const [quantity, setQuantity] = useState('1')

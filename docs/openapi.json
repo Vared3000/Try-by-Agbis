@@ -205,6 +205,15 @@
     "/order-items/{id}/labels": {
       "get": { "responses": { "200": { "description": "QR, Code 128 or 55mm label" } } }
     },
+    "/order-items/{id}/measurements": {
+      "patch": {
+        "responses": {
+          "200": { "description": "Measurement saved and order total recalculated" },
+          "409": { "description": "Measurement is locked or conflicts with payment" },
+          "422": { "description": "Measurement is invalid for this item" }
+        }
+      }
+    },
     "/files": {
       "post": {
         "responses": {

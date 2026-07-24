@@ -6,6 +6,7 @@ import { apiClient } from '../api/client.js'
 import {
   ChoiceChecks,
   ItemPhotos,
+  MeasurementEditor,
   ServiceAdder,
 } from '../features/orders/OrderItemControls.jsx'
 import { OrderCreatePanel } from '../features/orders/OrderCreatePanel.jsx'
@@ -402,6 +403,12 @@ function OrderEditor({
         : Number(itemForm.quantity || 0)
   const calculatedTotal =
     (calculatedQuantity * Number(selectedPosition?.unitPrice || 0)) / 100
+  const measurementComplete =
+    selectedPosition?.unit === 'square_meter'
+      ? Boolean(itemForm.length && itemForm.width)
+      : selectedPosition?.unit === 'linear_meter'
+        ? Boolean(itemForm.length)
+        : true
 
   return (
     <div className="order-editor">
@@ -488,7 +495,6 @@ function OrderEditor({
                 <label>
                   Длина, м
                   <input
-                    required
                     type="number"
                     min="0.001"
                     step="0.001"
@@ -504,7 +510,6 @@ function OrderEditor({
                 <label>
                   Ширина, м
                   <input
-                    required
                     type="number"
                     min="0.001"
                     step="0.001"
@@ -517,13 +522,16 @@ function OrderEditor({
                     }
                   />
                 </label>
+                <p className="form-hint field-wide">
+                  Если размер неизвестен, оставьте оба поля пустыми. Замер можно внести
+                  после приёмки.
+                </p>
               </>
             )}
             {selectedPosition?.unit === 'linear_meter' && (
               <label className="field-wide">
                 Длина, пог. м
                 <input
-                  required
                   type="number"
                   min="0.001"
                   step="0.001"
@@ -535,6 +543,9 @@ function OrderEditor({
                     }))
                   }
                 />
+                <small>
+                  Можно оставить пустым и указать длину после фактического замера.
+                </small>
               </label>
             )}
             {selectedPosition &&
@@ -612,8 +623,12 @@ function OrderEditor({
             <div className="item-calculation">
               <span>
                 {selectedPosition.unit === 'square_meter'
-                  ? `Площадь: ${calculatedQuantity.toLocaleString('ru-RU')} м²`
-                  : `Количество: ${calculatedQuantity.toLocaleString('ru-RU')}`}
+                  ? measurementComplete
+                    ? `Площадь: ${calculatedQuantity.toLocaleString('ru-RU')} м²`
+                    : 'Площадь: ожидает замера'
+                  : selectedPosition.unit === 'linear_meter' && !measurementComplete
+                    ? 'Длина: ожидает замера'
+                    : `Количество: ${calculatedQuantity.toLocaleString('ru-RU')}`}
               </span>
               <span>Цена: {money(selectedPosition.unitPrice)}</span>
               <strong>
@@ -633,144 +648,176 @@ function OrderEditor({
       )}
 
       <div className="order-items">
-        {(order.items ?? []).map((item, index) => (
-          <article key={item.id} className="order-item-card">
-            <div className="order-item-head">
-              <div>
-                <span>Изделие {index + 1}</span>
-                <strong>
-                  {item.nomenclature?.name ||
-                    findName(garments, item.garmentTypeId) ||
-                    'Изделие'}
-                </strong>
-                <small>
-                  {[findName(materials, item.materialId), findName(colors, item.colorId)]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </small>
-                <small>
-                  {item.area
-                    ? `${item.area} м²`
-                    : item.quantity
-                      ? `${item.quantity} ${
-                          {
+        {(order.items ?? []).map((item, index) => {
+          const measurementUnit = ['square_meter', 'linear_meter'].includes(
+            item.nomenclature?.unit,
+          )
+          const measurementMissing =
+            measurementUnit &&
+            (item.nomenclature.unit === 'square_meter' ? !item.area : !item.quantity)
+          const canMeasure =
+            measurementUnit &&
+            !['issued', 'cancelled'].includes(order.status) &&
+            !['issued', 'cancelled'].includes(item.status)
+
+          return (
+            <article key={item.id} className="order-item-card">
+              <div className="order-item-head">
+                <div>
+                  <span>Изделие {index + 1}</span>
+                  <strong>
+                    {item.nomenclature?.name ||
+                      findName(garments, item.garmentTypeId) ||
+                      'Изделие'}
+                  </strong>
+                  <small>
+                    {[
+                      findName(materials, item.materialId),
+                      findName(colors, item.colorId),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </small>
+                  <small>
+                    {item.area
+                      ? `${item.area} м²`
+                      : item.quantity
+                        ? `${item.quantity} ${
+                            {
+                              piece: 'шт.',
+                              linear_meter: 'пог. м',
+                              kilogram: 'кг',
+                            }[item.nomenclature?.unit] || ''
+                          }`
+                        : ''}
+                  </small>
+                  {measurementMissing && (
+                    <span className="measurement-pending">Ожидает замера</span>
+                  )}
+                </div>
+                <strong>{money(item.totalAmount)}</strong>
+              </div>
+              {item.status === 'ready' && (
+                <label className="issue-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={effectiveIssueIds.includes(item.id)}
+                    onChange={() => {
+                      const current = effectiveIssueIds
+                      setSelectedIssueIds(
+                        current.includes(item.id)
+                          ? current.filter((id) => id !== item.id)
+                          : [...current, item.id],
+                      )
+                    }}
+                  />
+                  Выдать эту позицию
+                </label>
+              )}
+              <details
+                className="order-item-details"
+                open={
+                  measurementMissing || (editable && !item.nomenclatureItemId)
+                    ? true
+                    : undefined
+                }
+              >
+                <summary>
+                  <span>Детали позиции</span>
+                  <small>
+                    {[
+                      item.defects?.length && `${item.defects.length} деф.`,
+                      item.contaminations?.length &&
+                        `${item.contaminations.length} загрязн.`,
+                      item.files?.length && `${item.files.length} фото`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'Размеры, услуги и фотографии'}
+                  </small>
+                </summary>
+                <div className="order-item-details-content">
+                  {item.description && <p>{item.description}</p>}
+                  {item.nomenclature && (
+                    <div className="item-measurements">
+                      {item.area && <span>{item.area} м²</span>}
+                      {!item.area && item.quantity && (
+                        <span>
+                          {item.quantity}{' '}
+                          {{
                             piece: 'шт.',
                             linear_meter: 'пог. м',
                             kilogram: 'кг',
-                          }[item.nomenclature?.unit] || ''
-                        }`
-                      : ''}
-                </small>
-              </div>
-              <strong>{money(item.totalAmount)}</strong>
-            </div>
-            {item.status === 'ready' && (
-              <label className="issue-checkbox">
-                <input
-                  type="checkbox"
-                  checked={effectiveIssueIds.includes(item.id)}
-                  onChange={() => {
-                    const current = effectiveIssueIds
-                    setSelectedIssueIds(
-                      current.includes(item.id)
-                        ? current.filter((id) => id !== item.id)
-                        : [...current, item.id],
-                    )
-                  }}
-                />
-                Выдать эту позицию
-              </label>
-            )}
-            <details
-              className="order-item-details"
-              open={editable && !item.nomenclatureItemId ? true : undefined}
-            >
-              <summary>
-                <span>Детали позиции</span>
-                <small>
-                  {[
-                    item.defects?.length && `${item.defects.length} деф.`,
-                    item.contaminations?.length &&
-                      `${item.contaminations.length} загрязн.`,
-                    item.files?.length && `${item.files.length} фото`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || 'Размеры, услуги и фотографии'}
-                </small>
-              </summary>
-              <div className="order-item-details-content">
-                {item.description && <p>{item.description}</p>}
-                {item.nomenclature && (
-                  <div className="item-measurements">
-                    {item.area && <span>{item.area} м²</span>}
-                    {!item.area && item.quantity && (
-                      <span>
-                        {item.quantity}{' '}
-                        {{
-                          piece: 'шт.',
-                          linear_meter: 'пог. м',
-                          kilogram: 'кг',
-                        }[item.nomenclature.unit] || ''}
-                      </span>
-                    )}
-                    {item.length && item.width && (
-                      <span>
-                        {item.length} × {item.width} м
-                      </span>
-                    )}
-                    <span>{money(item.unitPrice)} за единицу</span>
-                  </div>
-                )}
-                {!!item.defects?.length && (
-                  <div className="item-flags">
-                    <strong>Дефекты:</strong>{' '}
-                    {item.defects.map((row) => row.defect?.name).join(', ')}
-                  </div>
-                )}
-                {!!item.contaminations?.length && (
-                  <div className="item-flags">
-                    <strong>Загрязнения:</strong>{' '}
-                    {item.contaminations.map((row) => row.contamination?.name).join(', ')}
-                  </div>
-                )}
-                <div className="service-lines">
-                  {(item.services ?? []).map((service) => (
-                    <div key={service.id}>
-                      <span>
-                        {service.serviceName} × {service.quantity}
-                      </span>
-                      <strong>{money(service.totalPrice)}</strong>
+                          }[item.nomenclature.unit] || ''}
+                        </span>
+                      )}
+                      {item.length && item.width && (
+                        <span>
+                          {item.length} × {item.width} м
+                        </span>
+                      )}
+                      <span>{money(item.unitPrice)} за единицу</span>
                     </div>
-                  ))}
+                  )}
+                  {measurementMissing && (
+                    <p className="measurement-pending-note">
+                      Размер пока неизвестен. Предварительная стоимость позиции —{' '}
+                      {money(0)}.
+                    </p>
+                  )}
+                  {canMeasure && <MeasurementEditor item={item} onChanged={onChanged} />}
+                  {!!item.defects?.length && (
+                    <div className="item-flags">
+                      <strong>Дефекты:</strong>{' '}
+                      {item.defects.map((row) => row.defect?.name).join(', ')}
+                    </div>
+                  )}
+                  {!!item.contaminations?.length && (
+                    <div className="item-flags">
+                      <strong>Загрязнения:</strong>{' '}
+                      {item.contaminations
+                        .map((row) => row.contamination?.name)
+                        .join(', ')}
+                    </div>
+                  )}
+                  <div className="service-lines">
+                    {(item.services ?? []).map((service) => (
+                      <div key={service.id}>
+                        <span>
+                          {service.serviceName} × {service.quantity}
+                        </span>
+                        <strong>{money(service.totalPrice)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  <ItemPhotos item={item} editable={editable} onChanged={onChanged} />
+                  {editable && !item.nomenclatureItemId && (
+                    <ServiceAdder item={item} prices={prices} onChanged={onChanged} />
+                  )}
                 </div>
-                <ItemPhotos item={item} editable={editable} onChanged={onChanged} />
-                {editable && !item.nomenclatureItemId && (
-                  <ServiceAdder item={item} prices={prices} onChanged={onChanged} />
-                )}
-              </div>
-            </details>
-            <button
-              className="text-button"
-              onClick={() =>
-                onOpenDocument(
-                  `/order-items/${item.id}/labels?layout=tag`,
-                  'image/svg+xml',
-                )
-              }
-            >
-              Печать бирки 55×55
-            </button>
-            {editable && (
+              </details>
               <button
-                className="text-button danger"
-                disabled={removeItem.isPending}
-                onClick={() => removeItem.mutate(item.id)}
+                className="text-button"
+                onClick={() =>
+                  onOpenDocument(
+                    `/order-items/${item.id}/labels?layout=tag`,
+                    'image/svg+xml',
+                  )
+                }
               >
-                Удалить из заказа
+                Печать бирки 55×55
               </button>
-            )}
-          </article>
-        ))}
+              {editable && (
+                <button
+                  className="text-button danger"
+                  disabled={removeItem.isPending}
+                  onClick={() => removeItem.mutate(item.id)}
+                >
+                  Удалить из заказа
+                </button>
+              )}
+            </article>
+          )
+        })}
       </div>
 
       {!order.items?.length && (

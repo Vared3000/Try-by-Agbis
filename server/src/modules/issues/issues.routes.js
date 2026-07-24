@@ -113,6 +113,30 @@ export function createIssuesRouter({ sequelize, env }) {
             message: 'Все выбранные изделия должны быть готовы',
           })
         }
+        const measurementNomenclature = await models.NomenclatureItem.findAll({
+          where: {
+            id: items.map((item) => item.nomenclatureItemId).filter(Boolean),
+            organizationId: req.auth.organizationId,
+            unit: ['square_meter', 'linear_meter'],
+          },
+          attributes: ['id'],
+          transaction,
+        })
+        const measurementNomenclatureIds = new Set(
+          measurementNomenclature.map(({ id }) => id),
+        )
+        if (
+          items.some(
+            (item) =>
+              measurementNomenclatureIds.has(item.nomenclatureItemId) && !item.quantity,
+          )
+        ) {
+          throw new ApiError({
+            status: 409,
+            code: 'ITEM_MEASUREMENT_REQUIRED',
+            message: 'Перед выдачей внесите фактический замер изделия',
+          })
+        }
         const debt = BigInt(order.totalAmount) - BigInt(order.paidAmount)
         if (debt > 0n && !req.auth.permissions.includes('orders.issue_with_debt')) {
           throw new ApiError({

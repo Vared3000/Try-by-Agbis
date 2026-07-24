@@ -49,6 +49,9 @@ const itemQuantity = (item) => {
   if (item.quantity) {
     return `${item.quantity} ${unitLabels[item.nomenclature?.unit] || ''}`.trim()
   }
+  if (['square_meter', 'linear_meter'].includes(item.nomenclature?.unit)) {
+    return 'Ожидает замера'
+  }
   return '1 шт.'
 }
 

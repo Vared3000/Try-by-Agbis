@@ -1169,6 +1169,56 @@ textarea:focus {
   color: #52685c;
   font-size: 0.75rem;
 }
+.order-item-head .measurement-pending {
+  justify-self: start;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: #fff1c7;
+  color: #795900;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.measurement-pending-note {
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid #d7a700;
+  border-radius: 0 9px 9px 0;
+  background: #fff9e5;
+  color: #6d5813 !important;
+}
+.measurement-editor {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1fr) minmax(120px, 0.55fr) minmax(120px, 0.55fr)
+    auto;
+  gap: 0.65rem;
+  align-items: end;
+  margin: 0.75rem 0;
+  padding: 0.8rem;
+  border: 1px solid #dce7e0;
+  border-radius: 11px;
+  background: #f4f8f5;
+}
+.measurement-editor > div:first-child {
+  display: grid;
+  align-self: center;
+  gap: 0.2rem;
+}
+.measurement-editor > div:first-child small {
+  color: #708078;
+  font-size: 0.7rem;
+}
+.measurement-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+.measurement-editor .form-error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.measurement-edit-button {
+  margin: 0.25rem 0 0.75rem;
+}
 .choice-checks {
   grid-column: 1 / -1;
   border: 1px solid #dfe7e2;
@@ -1641,7 +1691,8 @@ textarea:focus {
   .service-form,
   .price-form,
   .item-form,
-  .service-adder {
+  .service-adder,
+  .measurement-editor {
     grid-template-columns: 1fr;
   }
   .form-grid {
