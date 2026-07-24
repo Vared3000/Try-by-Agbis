@@ -12,6 +12,7 @@ import {
 import { OrderCreatePanel } from '../features/orders/OrderCreatePanel.jsx'
 import { OrderListPanel } from '../features/orders/OrderListPanel.jsx'
 import { OrderMetaEditor } from '../features/orders/OrderMetaEditor.jsx'
+import { SaveOrderButton } from '../features/orders/SaveOrderButton.jsx'
 import { useOrderHotkeys } from '../features/orders/useOrderHotkeys.js'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
@@ -324,10 +325,14 @@ export function OrdersPage() {
             issueOrder={issueOrder}
             onOpenDocument={openDocument}
             actionError={actionError}
-            onChanged={() => {
-              queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
-              queryClient.invalidateQueries({ queryKey: ['orders'] })
-            }}
+            onChanged={() =>
+              Promise.all([
+                queryClient.invalidateQueries({
+                  queryKey: ['order', selectedOrderId],
+                }),
+                queryClient.invalidateQueries({ queryKey: ['orders'] }),
+              ])
+            }
           />
         )}
       </section>
@@ -863,6 +868,18 @@ function OrderEditor({
         </section>
       )}
       <div className="order-actions">
+        <SaveOrderButton
+          changeToken={order.version}
+          disabled={
+            addItem.isPending ||
+            updateOrder.isPending ||
+            removeItem.isPending ||
+            acceptOrder.isPending ||
+            cancelOrder.isPending
+          }
+          onSave={onChanged}
+          primary={!editable}
+        />
         {editable && (
           <button
             className="primary-button"
@@ -879,7 +896,7 @@ function OrderEditor({
           </button>
         )}
         <button
-          className={editable ? 'secondary-button' : 'primary-button'}
+          className="secondary-button"
           onClick={() =>
             onOpenDocument(`/orders/${order.id}/receipt`, 'text/html;charset=utf-8')
           }
