@@ -13,15 +13,23 @@ const priceListInput = z.object({
   status: z.enum(['draft', 'active', 'inactive']).default('draft'),
 })
 
-const itemInput = z.object({
-  serviceId: z.string().uuid(),
-  garmentTypeId: z.string().uuid().nullable().optional(),
-  price: z
-    .union([z.string().regex(/^\d+$/), z.number().int().nonnegative().safe()])
-    .transform(String),
-})
+const priceInput = z
+  .union([z.string().regex(/^\d+$/), z.number().int().nonnegative().safe()])
+  .transform(String)
 
-const itemPriceInput = itemInput.pick({ price: true })
+const itemInput = z.union([
+  z.object({
+    nomenclatureItemId: z.string().uuid(),
+    price: priceInput,
+  }),
+  z.object({
+    serviceId: z.string().uuid(),
+    garmentTypeId: z.string().uuid().nullable().optional(),
+    price: priceInput,
+  }),
+])
+
+const itemPriceInput = z.object({ price: priceInput })
 
 const success = (data, correlationId) => ({
   data,
@@ -41,7 +49,13 @@ export function createPriceListsRouter({ sequelize, env }) {
   const authenticate = createAuthenticate({
     authService: createAuthService({ sequelize, env }),
   })
-  const { PriceList, PriceListItem, Service, GarmentType } = sequelize.models
+  const {
+    PriceList,
+    PriceListItem,
+    Service,
+    GarmentType,
+    NomenclatureItem,
+  } = sequelize.models
   router.use(authenticate)
 
   const findPriceList = async (id, organizationId, options = {}) => {
@@ -101,6 +115,7 @@ export function createPriceListsRouter({ sequelize, env }) {
           include: [
             { model: Service, as: 'service' },
             { model: GarmentType, as: 'garmentType' },
+            { model: NomenclatureItem, as: 'nomenclature' },
           ],
         },
       ],
@@ -125,28 +140,45 @@ export function createPriceListsRouter({ sequelize, env }) {
         message: 'Неактивный прайс-лист нельзя изменять',
       })
     }
-    const service = await Service.findOne({
-      where: {
-        id: input.serviceId,
-        organizationId: req.auth.organizationId,
-        archivedAt: null,
-      },
-    })
-    const garmentType = input.garmentTypeId
-      ? await GarmentType.findOne({
-          where: {
-            id: input.garmentTypeId,
-            organizationId: req.auth.organizationId,
-            archivedAt: null,
-          },
-        })
-      : true
-    if (!service || !garmentType) {
-      throw new ApiError({
-        status: 422,
-        code: 'PRICE_LIST_REFERENCE_INVALID',
-        message: 'Услуга или тип изделия недоступны',
+    if ('nomenclatureItemId' in input) {
+      const nomenclature = await NomenclatureItem.findOne({
+        where: {
+          id: input.nomenclatureItemId,
+          organizationId: req.auth.organizationId,
+          archivedAt: null,
+        },
       })
+      if (!nomenclature) {
+        throw new ApiError({
+          status: 422,
+          code: 'PRICE_LIST_REFERENCE_INVALID',
+          message: 'Позиция номенклатуры недоступна',
+        })
+      }
+    } else {
+      const service = await Service.findOne({
+        where: {
+          id: input.serviceId,
+          organizationId: req.auth.organizationId,
+          archivedAt: null,
+        },
+      })
+      const garmentType = input.garmentTypeId
+        ? await GarmentType.findOne({
+            where: {
+              id: input.garmentTypeId,
+              organizationId: req.auth.organizationId,
+              archivedAt: null,
+            },
+          })
+        : true
+      if (!service || !garmentType) {
+        throw new ApiError({
+          status: 422,
+          code: 'PRICE_LIST_REFERENCE_INVALID',
+          message: 'Услуга или тип изделия недоступны',
+        })
+      }
     }
     const item = await PriceListItem.create({
       organizationId: req.auth.organizationId,

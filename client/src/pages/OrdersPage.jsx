@@ -130,12 +130,24 @@ export function OrdersPage() {
     queryKey: ['price-lists'],
     queryFn: async () => (await apiClient.get('/price-lists')).data.data,
   })
-  const activePriceList = priceLists.data?.find((row) => row.status === 'active')
+  const today = new Date().toISOString().slice(0, 10)
+  const activePriceList = priceLists.data?.find(
+    (row) =>
+      row.status === 'active' &&
+      row.validFrom <= today &&
+      (!row.validTo || row.validTo >= today),
+  )
   const prices = useQuery({
     queryKey: ['price-list', activePriceList?.id],
     queryFn: async () =>
       (await apiClient.get(`/price-lists/${activePriceList.id}`)).data.data,
     enabled: Boolean(activePriceList),
+  })
+  const pricedNomenclature = (nomenclature.data ?? []).map((row) => {
+    const override = prices.data?.items?.find(
+      (price) => price.nomenclatureItemId === row.id,
+    )
+    return override ? { ...row, unitPrice: override.price } : row
   })
   const order = useQuery({
     queryKey: ['order', selectedOrderId],
@@ -326,7 +338,7 @@ export function OrdersPage() {
             loading={order.isPending}
             branches={branches}
             garments={garments.data ?? []}
-            nomenclature={nomenclature.data ?? []}
+            nomenclature={pricedNomenclature}
             materials={materials.data ?? []}
             colors={colors.data ?? []}
             defects={defects.data ?? []}

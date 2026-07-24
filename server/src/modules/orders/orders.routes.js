@@ -581,8 +581,34 @@ export function createOrdersRouter({ sequelize, env }) {
           width = null
         }
       }
+      let resolvedUnitPrice = nomenclature?.unitPrice ?? null
+      if (nomenclature) {
+        const activePriceList = await models.PriceList.findOne({
+          where: {
+            organizationId: req.auth.organizationId,
+            status: 'active',
+            validFrom: { [Op.lte]: order.acceptedOn },
+            [Op.or]: [
+              { validTo: null },
+              { validTo: { [Op.gte]: order.acceptedOn } },
+            ],
+          },
+          order: [['validFrom', 'DESC']],
+          transaction,
+        })
+        if (activePriceList) {
+          const priceOverride = await models.PriceListItem.findOne({
+            where: {
+              priceListId: activePriceList.id,
+              nomenclatureItemId: nomenclature.id,
+            },
+            transaction,
+          })
+          if (priceOverride) resolvedUnitPrice = priceOverride.price
+        }
+      }
       const itemTotal = nomenclature
-        ? (BigInt(nomenclature.unitPrice) * measurementMillis + 500n) / 1000n
+        ? (BigInt(resolvedUnitPrice) * measurementMillis + 500n) / 1000n
         : 0n
       let routeId = input.routeId ?? null
       if (nomenclature && !routeId) {
@@ -665,7 +691,7 @@ export function createOrdersRouter({ sequelize, env }) {
           length,
           width,
           area,
-          unitPrice: nomenclature?.unitPrice ?? null,
+          unitPrice: resolvedUnitPrice,
           status: 'accepted',
           totalAmount: itemTotal.toString(),
           version: 0,

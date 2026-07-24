@@ -5,6 +5,8 @@ import * as orderItemNomenclatureNullability from './202607240003-order-item-nom
 import * as nomenclatureConstraints from './202607240004-nomenclature-constraints.js'
 import * as orderNumberScope from './202607240005-order-number-scope.js'
 import * as defectGroups from './202607240006-defect-groups.js'
+import * as priceListNomenclature from './202607240007-price-list-nomenclature.js'
+import * as priceListServiceNullability from './202607240008-price-list-service-nullability.js'
 
 export const migrations = [
   initialSchema,
@@ -14,4 +16,6 @@ export const migrations = [
   nomenclatureConstraints,
   orderNumberScope,
   defectGroups,
+  priceListNomenclature,
+  priceListServiceNullability,
 ]

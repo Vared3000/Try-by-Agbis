@@ -2,7 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { apiClient } from '../api/client.js'
+import { NomenclatureCombobox } from '../features/orders/NomenclatureCombobox.jsx'
 import { apiError, money } from './workspace-utils.js'
+
+const unitLabels = {
+  piece: 'шт.',
+  square_meter: 'м²',
+  linear_meter: 'пог. м',
+  kilogram: 'кг',
+}
 
 export function PriceListsPage() {
   const queryClient = useQueryClient()
@@ -14,8 +22,7 @@ export function PriceListsPage() {
     status: 'active',
   })
   const [itemForm, setItemForm] = useState({
-    serviceId: '',
-    garmentTypeId: '',
+    nomenclatureItemId: '',
     price: '',
   })
   const [editingPrice, setEditingPrice] = useState({ id: '', price: '' })
@@ -32,14 +39,20 @@ export function PriceListsPage() {
     queryFn: async () => (await apiClient.get(`/price-lists/${effectiveId}`)).data.data,
     enabled: Boolean(effectiveId),
   })
-  const services = useQuery({
-    queryKey: ['services'],
-    queryFn: async () => (await apiClient.get('/services')).data.data,
+  const nomenclature = useQuery({
+    queryKey: ['nomenclature'],
+    queryFn: async () => (await apiClient.get('/nomenclature')).data.data,
   })
-  const garments = useQuery({
-    queryKey: ['catalog', 'garment-types'],
-    queryFn: async () => (await apiClient.get('/catalog/garment-types')).data.data,
-  })
+  const existingNomenclatureIds = new Set(
+    (detail.data?.items ?? [])
+      .map((row) => row.nomenclatureItemId)
+      .filter(Boolean),
+  )
+  const availableNomenclature = (nomenclature.data ?? []).filter(
+    (row) =>
+      row.id === itemForm.nomenclatureItemId ||
+      !existingNomenclatureIds.has(row.id),
+  )
   const createList = useMutation({
     mutationFn: async () =>
       (
@@ -57,12 +70,11 @@ export function PriceListsPage() {
   const addPrice = useMutation({
     mutationFn: () =>
       apiClient.post(`/price-lists/${effectiveId}/items`, {
-        serviceId: itemForm.serviceId,
-        garmentTypeId: itemForm.garmentTypeId || null,
+        nomenclatureItemId: itemForm.nomenclatureItemId,
         price: String(Math.round(Number(itemForm.price.replace(',', '.')) * 100)),
       }),
     onSuccess: () => {
-      setItemForm((value) => ({ ...value, price: '' }))
+      setItemForm({ nomenclatureItemId: '', price: '' })
       queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
     },
   })
@@ -195,7 +207,7 @@ export function PriceListsPage() {
             <h2>{detail.data?.name || 'Выберите прайс-лист'}</h2>
           </div>
           <div className="price-list-actions">
-            <span>{detail.data?.items?.length ?? 0} цен</span>
+            <span>{detail.data?.items?.length ?? 0} позиций</span>
             {detail.data?.status === 'draft' && (
               <button
                 className="text-button"
@@ -233,48 +245,44 @@ export function PriceListsPage() {
               addPrice.mutate()
             }}
           >
-            <select
-              value={itemForm.garmentTypeId}
-              onChange={(event) =>
-                setItemForm((value) => ({
-                  ...value,
-                  garmentTypeId: event.target.value,
-                }))
-              }
-            >
-              <option value="">Любое изделие</option>
-              {(garments.data ?? []).map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.name}
-                </option>
-              ))}
-            </select>
-            <select
-              required
-              value={itemForm.serviceId}
-              onChange={(event) =>
-                setItemForm((value) => ({ ...value, serviceId: event.target.value }))
-              }
-            >
-              <option value="">Услуга</option>
-              {(services.data ?? []).map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.name}
-                </option>
-              ))}
-            </select>
-            <input
-              required
-              min="0"
-              step="0.01"
-              type="number"
-              value={itemForm.price}
-              onChange={(event) =>
-                setItemForm((value) => ({ ...value, price: event.target.value }))
-              }
-              placeholder="Цена, ₽"
+            <NomenclatureCombobox
+              items={availableNomenclature}
+              value={itemForm.nomenclatureItemId}
+              onChange={(nomenclatureItemId) => {
+                const selected = nomenclature.data?.find(
+                  (row) => row.id === nomenclatureItemId,
+                )
+                setItemForm({
+                  nomenclatureItemId,
+                  price: selected ? String(Number(selected.unitPrice) / 100) : '',
+                })
+              }}
             />
-            <button className="primary-button">Добавить цену</button>
+            <label>
+              Цена за единицу, ₽
+              <input
+                required
+                min="0"
+                step="0.01"
+                type="number"
+                value={itemForm.price}
+                onChange={(event) =>
+                  setItemForm((value) => ({ ...value, price: event.target.value }))
+                }
+                placeholder="590"
+              />
+            </label>
+            <button
+              className="primary-button"
+              disabled={!itemForm.nomenclatureItemId || addPrice.isPending}
+            >
+              {addPrice.isPending ? 'Добавляем…' : 'Добавить в прайс'}
+            </button>
+            {!nomenclature.isPending && !availableNomenclature.length && (
+              <p className="form-hint field-wide">
+                Все позиции номенклатуры уже добавлены в этот прайс-лист.
+              </p>
+            )}
           </form>
         )}
         {addPrice.error && <p className="form-error">{apiError(addPrice.error)}</p>}
@@ -284,8 +292,19 @@ export function PriceListsPage() {
           {(detail.data?.items ?? []).map((row) => (
             <article key={row.id}>
               <div>
-                <strong>{row.garmentType?.name || 'Любое изделие'}</strong>
-                <span>{row.service?.name}</span>
+                <strong>
+                  {row.nomenclature?.name ||
+                    row.garmentType?.name ||
+                    row.service?.name ||
+                    'Позиция'}
+                </strong>
+                <span>
+                  {row.nomenclature
+                    ? `Цена за ${unitLabels[row.nomenclature.unit] || row.nomenclature.unit}`
+                    : row.service
+                      ? `Дополнительная услуга: ${row.service.name}`
+                      : 'Старая строка прайса'}
+                </span>
               </div>
               {editingPrice.id === row.id ? (
                 <form
@@ -308,7 +327,9 @@ export function PriceListsPage() {
                         price: event.target.value,
                       }))
                     }
-                    aria-label={`Цена для ${row.service?.name}`}
+                    aria-label={`Цена для ${
+                      row.nomenclature?.name || row.service?.name || 'позиции'
+                    }`}
                   />
                   <button className="text-button" disabled={updatePrice.isPending}>
                     Сохранить

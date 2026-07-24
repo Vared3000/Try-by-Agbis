@@ -5,18 +5,16 @@ import { apiClient } from '../api/client.js'
 import { apiError } from './workspace-utils.js'
 
 const catalogs = [
-  ['garment-types', 'Типы изделий'],
   ['materials', 'Материалы'],
   ['colors', 'Цвета'],
-  ['defects', 'Дефекты'],
   ['contaminations', 'Загрязнения'],
-  ['service-categories', 'Категории услуг'],
+  ['service-categories', 'Категории доп. услуг'],
 ]
 
 export function CatalogPage() {
   const queryClient = useQueryClient()
-  const [active, setActive] = useState('garment-types')
-  const [entry, setEntry] = useState({ code: '', name: '' })
+  const [active, setActive] = useState('materials')
+  const [entry, setEntry] = useState({ name: '' })
   const [service, setService] = useState({
     code: '',
     name: '',
@@ -34,9 +32,13 @@ export function CatalogPage() {
     queryFn: async () => (await apiClient.get('/services')).data.data,
   })
   const createEntry = useMutation({
-    mutationFn: () => apiClient.post(`/catalog/${active}`, entry),
+    mutationFn: () =>
+      apiClient.post(`/catalog/${active}`, {
+        code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}`,
+        name: entry.name,
+      }),
     onSuccess: () => {
-      setEntry({ code: '', name: '' })
+      setEntry({ name: '' })
       queryClient.invalidateQueries({ queryKey: ['catalog', active] })
     },
   })
@@ -62,8 +64,13 @@ export function CatalogPage() {
       <section className="panel">
         <div className="panel-title">
           <div>
-            <p className="eyebrow">Номенклатура</p>
-            <h2>Справочники приёмки</h2>
+            <p className="eyebrow">Настройки заказа</p>
+            <h2>Параметры приёмки</h2>
+            <p>
+              Эти значения появляются в заказе в полях «Материал», «Цвет»,
+              «Загрязнение» и «Дополнительные услуги». Сами изделия создаются в
+              номенклатуре, а их цены — в прайс-листах.
+            </p>
           </div>
         </div>
         <div className="tab-row">
@@ -78,20 +85,12 @@ export function CatalogPage() {
           ))}
         </div>
         <form
-          className="inline-form"
+          className="inline-form catalog-entry-form"
           onSubmit={(event) => {
             event.preventDefault()
             createEntry.mutate()
           }}
         >
-          <input
-            required
-            value={entry.code}
-            onChange={(event) =>
-              setEntry((value) => ({ ...value, code: event.target.value }))
-            }
-            placeholder="Код"
-          />
           <input
             required
             value={entry.name}
@@ -105,16 +104,17 @@ export function CatalogPage() {
         {createEntry.error && <p className="form-error">{apiError(createEntry.error)}</p>}
         <div className="chip-list">
           {activeRows.map((row) => (
-            <span key={row.id}>
-              <code>{row.code}</code> {row.name}
-            </span>
+            <span key={row.id}>{row.name}</span>
           ))}
         </div>
       </section>
 
       <section className="panel">
         <div className="panel-title">
-          <h2>Услуги</h2>
+          <div>
+            <h2>Дополнительные услуги</h2>
+            <p>Например: глажение, удаление пятен или защитная пропитка.</p>
+          </div>
           <span>{services.data?.length ?? 0} позиций</span>
         </div>
         <form
@@ -164,10 +164,10 @@ export function CatalogPage() {
               <div>
                 <strong>{row.name}</strong>
                 <span>
-                  {row.code} · {row.category?.name || 'Без категории'}
+                  {row.category?.name || 'Без категории'}
                 </span>
               </div>
-              <span className="status-pill">{row.unit}</span>
+              <span className="status-pill">доп. услуга</span>
             </article>
           ))}
         </div>

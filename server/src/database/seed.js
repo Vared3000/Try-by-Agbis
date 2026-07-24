@@ -330,7 +330,10 @@ export async function seed(sequelize, logger) {
       ['50000000-0000-4000-8000-000000000004', 'Шторы', 'linear_meter', 'length', 45000, null],
       ['50000000-0000-4000-8000-000000000005', 'Бельё', 'kilogram', 'weight', 35000, null],
     ]
-    for (const [id, name, unit, calculationType, unitPrice, defectGroupId] of nomenclatureItems) {
+    for (const [
+      index,
+      [id, name, unit, calculationType, unitPrice, defectGroupId],
+    ] of nomenclatureItems.entries()) {
       const [item] = await models.NomenclatureItem.findOrCreate({
         where: { id },
         defaults: {
@@ -348,6 +351,18 @@ export async function seed(sequelize, logger) {
       if (item.defectGroupId !== defectGroupId) {
         await item.update({ defectGroupId }, common)
       }
+      await models.PriceListItem.findOrCreate({
+        where: {
+          id: `60000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+        },
+        defaults: {
+          organizationId: ids.organization,
+          priceListId: ids.priceList,
+          nomenclatureItemId: id,
+          price: unitPrice,
+        },
+        ...common,
+      })
     }
 
     const demoGarments = [

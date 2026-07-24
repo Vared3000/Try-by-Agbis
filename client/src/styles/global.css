@@ -724,8 +724,12 @@ textarea:focus {
 .service-form {
   grid-template-columns: 0.7fr 1.2fr 1fr auto;
 }
+.catalog-entry-form {
+  grid-template-columns: minmax(220px, 1fr) auto;
+}
 .price-form {
-  grid-template-columns: 1fr 1fr 0.7fr auto;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: end;
 }
 .price-list-actions,
 .price-row-actions,

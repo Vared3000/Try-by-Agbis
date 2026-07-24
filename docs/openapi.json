@@ -158,6 +158,23 @@
       "get": { "responses": { "200": { "description": "Price lists" } } },
       "post": { "responses": { "201": { "description": "Price list created" } } }
     },
+    "/price-lists/{id}/items": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string", "format": "uuid" }
+        }
+      ],
+      "post": {
+        "responses": {
+          "201": { "description": "Nomenclature price added to price list" },
+          "409": { "description": "Nomenclature price already exists" },
+          "422": { "description": "Nomenclature item is unavailable" }
+        }
+      }
+    },
     "/orders": {
       "get": { "responses": { "200": { "description": "Orders" } } },
       "post": { "responses": { "201": { "description": "Draft created" } } }

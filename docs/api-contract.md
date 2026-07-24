@@ -19,6 +19,7 @@
 | PATCH/DELETE | `/defect-groups/{id}`          | изменить/архивировать группу  | `catalog.manage`              |
 | GET       | `/services`                      | доступные услуги              | `catalog.view`                |
 | GET/POST  | `/price-lists`                   | прайс-листы                   | `price_lists.manage`          |
+| POST      | `/price-lists/{id}/items`        | цена позиции номенклатуры     | `price_lists.manage`          |
 | GET/POST  | `/orders`                        | список и черновик             | `orders.*`                    |
 | GET/PATCH | `/orders/{id}`                   | заказ/изменение черновика     | `orders.*`                    |
 | POST      | `/orders/{id}/accept`            | оформить и зафиксировать цены | `orders.create`               |

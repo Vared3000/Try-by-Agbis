@@ -359,8 +359,12 @@ export const schema = {
   PriceListItem: tenantEntity(
     {
       priceListId: uuid({ tableName: 'price_lists', key: 'id' }),
-      serviceId: uuid({ tableName: 'services', key: 'id' }),
+      serviceId: nullableUuid({ tableName: 'services', key: 'id' }),
       garmentTypeId: nullableUuid({ tableName: 'garment_types', key: 'id' }),
+      nomenclatureItemId: nullableUuid({
+        tableName: 'nomenclature_items',
+        key: 'id',
+      }),
       price: money(),
     },
     {
@@ -370,6 +374,11 @@ export const schema = {
           unique: true,
           fields: ['priceListId', 'serviceId', 'garmentTypeId'],
           name: 'price_list_items_scope_unique',
+        },
+        {
+          unique: true,
+          fields: ['priceListId', 'nomenclatureItemId'],
+          name: 'price_list_items_nomenclature_unique',
         },
       ],
     },

@@ -1107,6 +1107,21 @@ integration('auth API with PostgreSQL', () => {
       })
       .expect(201)
     expect(position.body.data.calculationType).toBe('area')
+    const activePriceList = await sequelize.models.PriceList.findOne({
+      where: { organizationId: ids.organization, status: 'active' },
+      order: [['validFrom', 'DESC']],
+    })
+    const nomenclaturePrice = await request(app)
+      .post(`/api/v1/price-lists/${activePriceList.id}/items`)
+      .set('Authorization', authorization)
+      .send({
+        nomenclatureItemId: position.body.data.id,
+        price: '61000',
+      })
+      .expect(201)
+    expect(nomenclaturePrice.body.data.nomenclatureItemId).toBe(
+      position.body.data.id,
+    )
 
     const client = await sequelize.models.Client.findOne({
       where: { organizationId: ids.organization },
@@ -1129,7 +1144,7 @@ integration('auth API with PostgreSQL', () => {
       .expect(201)
     expect(item.body.data.area).toBeNull()
     expect(item.body.data.quantity).toBeNull()
-    expect(item.body.data.unitPrice).toBe('59000')
+    expect(item.body.data.unitPrice).toBe('61000')
     expect(item.body.data.totalAmount).toBe('0')
     expect(item.body.data.routeId).toBe(ids.productionRoute)
 
@@ -1145,8 +1160,8 @@ integration('auth API with PostgreSQL', () => {
       .send({ length: '2', width: '3' })
       .expect(200)
     expect(measurement.body.data.item.area).toBe('6.000')
-    expect(measurement.body.data.item.totalAmount).toBe('354000')
-    expect(measurement.body.data.order.totalAmount).toBe('354000')
+    expect(measurement.body.data.item.totalAmount).toBe('366000')
+    expect(measurement.body.data.order.totalAmount).toBe('366000')
 
     const quickInProgress = await request(app)
       .patch(`/api/v1/order-items/${item.body.data.id}/work-status`)
@@ -1161,7 +1176,7 @@ integration('auth API with PostgreSQL', () => {
       .set('Authorization', authorization)
       .expect(200)
     expect(details.body.data.status).toBe('in_progress')
-    expect(details.body.data.totalAmount).toBe('354000')
+    expect(details.body.data.totalAmount).toBe('366000')
     expect(details.body.data.items[0].nomenclature.name).toBe('Integration wool carpet')
 
     for (const stageId of [ids.cleaningStage, ids.qualityStage, ids.packingStage]) {

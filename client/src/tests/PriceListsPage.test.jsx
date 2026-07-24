@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { apiClient } from '../api/client.js'
 import { PriceListsPage } from '../pages/PriceListsPage.jsx'
@@ -43,18 +43,44 @@ describe('PriceListsPage', () => {
                 {
                   id: 'price-item-1',
                   price: '59000',
-                  service: { id: 'service-1', name: 'Чистка' },
-                  garmentType: { id: 'garment-1', name: 'Ковер' },
+                  nomenclatureItemId: 'nomenclature-1',
+                  nomenclature: {
+                    id: 'nomenclature-1',
+                    name: 'Ковер шерстяной',
+                    unit: 'square_meter',
+                  },
                 },
               ],
             },
           },
         })
       }
+      if (url === '/nomenclature') {
+        return Promise.resolve({
+          data: {
+            data: [
+              {
+                id: 'nomenclature-1',
+                name: 'Ковер шерстяной',
+                unit: 'square_meter',
+                unitPrice: '59000',
+              },
+              {
+                id: 'nomenclature-2',
+                name: 'Куртка',
+                unit: 'piece',
+                unitPrice: '220000',
+              },
+            ],
+          },
+        })
+      }
       return Promise.resolve({ data: { data: [] } })
     })
+    apiClient.post.mockResolvedValue({ data: { data: { id: 'price-item-2' } } })
     apiClient.patch.mockResolvedValue({ data: { data: { price: '65000' } } })
   })
+  afterEach(cleanup)
 
   it('edits an existing price', async () => {
     const queryClient = new QueryClient({
@@ -67,7 +93,7 @@ describe('PriceListsPage', () => {
     )
 
     fireEvent.click(await screen.findByRole('button', { name: 'Изменить' }))
-    fireEvent.change(screen.getByLabelText('Цена для Чистка'), {
+    fireEvent.change(screen.getByLabelText('Цена для Ковер шерстяной'), {
       target: { value: '650' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
@@ -76,6 +102,36 @@ describe('PriceListsPage', () => {
       expect(apiClient.patch).toHaveBeenCalledWith(
         '/price-lists/price-list-1/items/price-item-1',
         { price: '65000' },
+      ),
+    )
+  })
+
+  it('adds a nomenclature position to the selected price list', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PriceListsPage />
+      </QueryClientProvider>,
+    )
+
+    const combobox = await screen.findByRole('combobox', {
+      name: 'Позиция номенклатуры',
+    })
+    fireEvent.focus(combobox)
+    fireEvent.mouseDown(
+      await screen.findByRole('option', { name: /Куртка/ }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить в прайс' }))
+
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/price-lists/price-list-1/items',
+        {
+          nomenclatureItemId: 'nomenclature-2',
+          price: '220000',
+        },
       ),
     )
   })
