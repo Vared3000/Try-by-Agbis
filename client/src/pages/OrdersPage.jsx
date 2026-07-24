@@ -16,6 +16,7 @@ import {
 import { OrderCreatePanel } from '../features/orders/OrderCreatePanel.jsx'
 import { OrderListPanel } from '../features/orders/OrderListPanel.jsx'
 import { OrderMetaEditor } from '../features/orders/OrderMetaEditor.jsx'
+import { PaymentModal } from '../features/orders/PaymentModal.jsx'
 import { SaveOrderButton } from '../features/orders/SaveOrderButton.jsx'
 import { useOrderHotkeys } from '../features/orders/useOrderHotkeys.js'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
@@ -311,6 +312,7 @@ export function OrdersPage() {
             key={selectedOrderId}
             order={order.data}
             loading={order.isPending}
+            branches={branches}
             garments={garments.data ?? []}
             nomenclature={nomenclature.data ?? []}
             materials={materials.data ?? []}
@@ -370,6 +372,7 @@ export function OrdersPage() {
 function OrderEditor({
   order,
   loading,
+  branches,
   garments,
   nomenclature,
   materials,
@@ -392,6 +395,7 @@ function OrderEditor({
 }) {
   const [issueReason, setIssueReason] = useState('')
   const [metaOpen, setMetaOpen] = useState(false)
+  const [paymentOpen, setPaymentOpen] = useState(false)
   if (loading || !order) return <div className="empty-state compact">Загружаем…</div>
   const editable = order.status === 'draft'
   const readyItems = order.items?.filter((item) => item.status === 'ready') ?? []
@@ -440,6 +444,16 @@ function OrderEditor({
           <strong>{money(order.totalAmount)}</strong>
           <small>Оплачено: {money(order.paidAmount)}</small>
           {debt > 0 && <small className="debt-text">Долг: {money(debt)}</small>}
+          {!['draft', 'cancelled'].includes(order.status) && (
+            <button
+              type="button"
+              className="primary-button order-payment-button"
+              disabled={debt <= 0}
+              onClick={() => setPaymentOpen(true)}
+            >
+              {debt > 0 ? 'Оплата' : 'Оплачено'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -963,6 +977,14 @@ function OrderEditor({
           order={order}
           updateOrder={updateOrder}
           onClose={() => setMetaOpen(false)}
+        />
+      )}
+      {paymentOpen && (
+        <PaymentModal
+          branches={branches}
+          order={order}
+          onClose={() => setPaymentOpen(false)}
+          onPaid={onChanged}
         />
       )}
     </div>

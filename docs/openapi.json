@@ -240,6 +240,14 @@
     "/cash-shifts": {
       "post": { "responses": { "201": { "description": "Shift opened" } } }
     },
+    "/cash-shifts/current": {
+      "get": {
+        "responses": {
+          "200": { "description": "Current open cash shift or null" },
+          "403": { "description": "Branch access denied" }
+        }
+      }
+    },
     "/cash-shifts/{id}/close": {
       "post": { "responses": { "200": { "description": "Shift closed" } } }
     },

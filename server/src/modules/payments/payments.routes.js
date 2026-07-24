@@ -18,6 +18,10 @@ const shiftOpenInput = z.object({
     .transform(String),
 })
 
+const currentShiftInput = z.object({
+  branchId: z.string().uuid(),
+})
+
 const paymentInput = z.object({
   amount: money,
   method: z.enum(['cash', 'card', 'transfer']),
@@ -80,6 +84,12 @@ export function createPaymentsRouter({ sequelize, env }) {
     async (req, res) => {
       const input = shiftOpenInput.parse(req.body)
       const shift = await sequelize.transaction(async (transaction) => {
+        await sequelize.query('SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))', {
+          replacements: {
+            key: `${req.auth.organizationId}:cash-shift:${input.workplaceId}`,
+          },
+          transaction,
+        })
         const workplace = await models.Workplace.findOne({
           where: {
             id: input.workplaceId,
@@ -103,6 +113,16 @@ export function createPaymentsRouter({ sequelize, env }) {
             message: 'Рабочее место недоступно',
           })
         }
+        const existing = await models.CashShift.findOne({
+          where: {
+            organizationId: req.auth.organizationId,
+            workplaceId: input.workplaceId,
+            status: 'open',
+          },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+        if (existing) return existing
         return models.CashShift.create(
           {
             organizationId: req.auth.organizationId,
@@ -118,6 +138,30 @@ export function createPaymentsRouter({ sequelize, env }) {
         )
       })
       res.status(201).json(success(shift, req.correlationId))
+    },
+  )
+
+  router.get(
+    '/cash-shifts/current',
+    requirePermission('payments.create'),
+    async (req, res) => {
+      const input = currentShiftInput.parse(req.query)
+      if (!req.auth.branchIds.includes(input.branchId)) {
+        throw new ApiError({
+          status: 403,
+          code: 'AUTH_BRANCH_DENIED',
+          message: 'Нет доступа к филиалу',
+        })
+      }
+      const shift = await models.CashShift.findOne({
+        where: {
+          organizationId: req.auth.organizationId,
+          branchId: input.branchId,
+          status: 'open',
+        },
+        order: [['openedAt', 'DESC']],
+      })
+      res.json(success(shift, req.correlationId))
     },
   )
 

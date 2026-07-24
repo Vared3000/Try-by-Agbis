@@ -785,6 +785,13 @@ integration('auth API with PostgreSQL', () => {
       order: [['createdAt', 'DESC']],
     })
 
+    const noCurrentShift = await request(app)
+      .get('/api/v1/cash-shifts/current')
+      .query({ branchId: ids.branch })
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(noCurrentShift.body.data).toBeNull()
+
     const shift = await request(app)
       .post('/api/v1/cash-shifts')
       .set('Authorization', authorization)
@@ -794,6 +801,13 @@ integration('auth API with PostgreSQL', () => {
         openingAmount: '10000',
       })
       .expect(201)
+
+    const currentShift = await request(app)
+      .get('/api/v1/cash-shifts/current')
+      .query({ branchId: ids.branch })
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(currentShift.body.data.id).toBe(shift.body.data.id)
 
     const paymentRequest = () =>
       request(app)
@@ -843,6 +857,13 @@ integration('auth API with PostgreSQL', () => {
       .set('Authorization', authorization)
       .expect(200)
     expect(closed.body.data.closingAmount).toBe('70000')
+
+    const noShiftAfterClosing = await request(app)
+      .get('/api/v1/cash-shifts/current')
+      .query({ branchId: ids.branch })
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(noShiftAfterClosing.body.data).toBeNull()
 
     await order.reload()
     expect(order.paidAmount).toBe('60000')
