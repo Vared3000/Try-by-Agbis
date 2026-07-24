@@ -65,4 +65,52 @@ describe('Workspace routing', () => {
       await screen.findByRole('heading', { level: 1, name: 'Клиенты' }),
     ).toBeVisible()
   })
+
+  it('preselects a client when a new order is opened from the client card', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/clients/client-1') {
+        return response({
+          id: 'client-1',
+          fullName: 'Анна Смирнова',
+          phone: '+79990000000',
+        })
+      }
+      if (url === '/auth/context') {
+        return response({
+          branches: [
+            {
+              id: 'branch-1',
+              name: 'Филиал',
+              locations: [{ id: 'location-1', name: 'Приёмка' }],
+            },
+          ],
+        })
+      }
+      return response([])
+    })
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuthContext.Provider
+          value={{
+            user: {
+              displayName: 'Администратор',
+              roleCodes: ['owner'],
+            },
+            signOut: vi.fn(),
+          }}
+        >
+          <MemoryRouter initialEntries={['/orders?clientId=client-1']}>
+            <WorkspacePage />
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByText('Анна Смирнова')).toBeVisible()
+    expect(screen.getByText('+79990000000')).toBeVisible()
+  })
 })

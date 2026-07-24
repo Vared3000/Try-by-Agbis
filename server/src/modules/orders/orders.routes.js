@@ -15,6 +15,7 @@ import {
   renderOrderLabelsHtml,
   renderReceiptHtml,
 } from './print-templates.js'
+import { orderDisplayNumber } from './order-number.js'
 
 const orderInput = z.object({
   branchId: z.string().uuid(),
@@ -85,9 +86,6 @@ function millisToDecimal(value) {
   const fraction = String(value % 1000n).padStart(3, '0')
   return `${whole}.${fraction}`
 }
-
-const checkDigit = (value) =>
-  String([...String(value)].reduce((sum, digit) => sum + Number(digit), 0) % 10)
 
 const requestHash = (value) => createHash('sha256').update(value).digest('hex')
 
@@ -252,7 +250,11 @@ export function createOrdersRouter({ sequelize, env }) {
           { nextValue: (BigInt(sequence) + 1n).toString() },
           { transaction },
         )
-        const displayNumber = `${location.code}-${sequence}-${checkDigit(sequence)}`
+        const displayNumber = orderDisplayNumber({
+          locationCode: location.code,
+          businessDate,
+          sequence,
+        })
         return models.Order.create(
           {
             organizationId: req.auth.organizationId,

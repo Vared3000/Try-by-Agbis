@@ -100,6 +100,22 @@
       "patch": { "responses": { "200": { "description": "Updated" } } },
       "delete": { "responses": { "200": { "description": "Archived" } } }
     },
+    "/clients/{id}/orders": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string", "format": "uuid" }
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": { "description": "Client order history in accessible branches" },
+          "404": { "description": "Client not found" }
+        }
+      }
+    },
     "/services": {
       "get": { "responses": { "200": { "description": "Services" } } },
       "post": { "responses": { "201": { "description": "Service created" } } }

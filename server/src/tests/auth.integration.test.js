@@ -583,6 +583,26 @@ integration('auth API with PostgreSQL', () => {
       where: { organizationId: ids.organization },
     })
 
+    await sequelize.models.Order.create({
+      id: randomUUID(),
+      organizationId: ids.organization,
+      branchId: ids.branch,
+      acceptanceLocationId: ids.location,
+      clientId: client.id,
+      sequence: '1',
+      displayNumber: 'RECEPTION-20250101-1-1',
+      acceptedOn: '2025-01-01',
+      dueAt: null,
+      status: 'issued',
+      subtotalAmount: 0,
+      discountAmount: 0,
+      totalAmount: 0,
+      paidAmount: 0,
+      notes: 'Previous business day order',
+      createdByUserId: ids.user,
+      version: 0,
+    })
+
     const order = await request(app)
       .post('/api/v1/orders')
       .set('Authorization', authorization)
@@ -593,6 +613,8 @@ integration('auth API with PostgreSQL', () => {
       })
       .expect(201)
     expect(order.body.data.displayNumber).toMatch(/^RECEPTION-/)
+    expect(order.body.data.sequence).toBe('1')
+    expect(order.body.data.displayNumber).not.toBe('RECEPTION-20250101-1-1')
 
     const updatedOrder = await request(app)
       .patch(`/api/v1/orders/${order.body.data.id}`)
@@ -648,6 +670,12 @@ integration('auth API with PostgreSQL', () => {
     expect(details.body.data.status).toBe('accepted')
     expect(details.body.data.totalAmount).toBe('123400')
     expect(details.body.data.items[0].services[0].serviceName).toBe('Test service')
+
+    const clientOrders = await request(app)
+      .get(`/api/v1/clients/${client.id}/orders`)
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(clientOrders.body.data.map(({ id }) => id)).toContain(order.body.data.id)
 
     const receipt = await request(app)
       .get(`/api/v1/orders/${order.body.data.id}/receipt`)

@@ -25,7 +25,9 @@ export function OrdersPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const selectedOrderId = location.pathname.match(/^\/orders\/([^/]+)$/)?.[1] || ''
-  const orderStatus = new URLSearchParams(location.search).get('status') || ''
+  const searchParams = new URLSearchParams(location.search)
+  const orderStatus = searchParams.get('status') || ''
+  const requestedClientId = searchParams.get('clientId') || ''
   const setSelectedOrderId = (id) =>
     navigate(id ? `/orders/${id}${location.search}` : '/orders')
   const setOrderStatus = (status) =>
@@ -36,7 +38,7 @@ export function OrdersPage() {
   const [orderSearch, setOrderSearch] = useState('')
   const debouncedOrderSearch = useDebouncedValue(orderSearch)
   const [orderForm, setOrderForm] = useState({
-    clientId: '',
+    clientId: requestedClientId,
     branchId: '',
     acceptanceLocationId: '',
     dueAt: '',
@@ -62,6 +64,11 @@ export function OrdersPage() {
   const clients = useQuery({
     queryKey: ['clients'],
     queryFn: async () => (await apiClient.get('/clients?pageSize=100')).data.data,
+  })
+  const requestedClient = useQuery({
+    queryKey: ['client', requestedClientId],
+    queryFn: async () => (await apiClient.get(`/clients/${requestedClientId}`)).data.data,
+    enabled: Boolean(requestedClientId),
   })
   const orders = useQuery({
     queryKey: ['orders', debouncedOrderSearch, orderStatus],
@@ -131,7 +138,9 @@ export function OrdersPage() {
   const locations =
     branches.find((branch) => branch.id === effectiveBranchId)?.locations ?? []
   const effectiveLocationId = orderForm.acceptanceLocationId || locations[0]?.id || ''
-  const selectedClient = clients.data?.find((client) => client.id === orderForm.clientId)
+  const selectedClient =
+    clients.data?.find((client) => client.id === orderForm.clientId) ??
+    (requestedClient.data?.id === orderForm.clientId ? requestedClient.data : null)
   const createOrder = useMutation({
     mutationFn: async () =>
       (

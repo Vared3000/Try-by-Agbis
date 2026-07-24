@@ -31,7 +31,9 @@ describe('database schema', () => {
       (schema[name].options.indexes ?? []).map((index) => index.fields.join(','))
 
     expect(indexFields('Branch')).toContain('organizationId,code')
-    expect(indexFields('Order')).toContain('organizationId,acceptanceLocationId,sequence')
+    expect(indexFields('Order')).toContain(
+      'organizationId,acceptanceLocationId,acceptedOn,sequence',
+    )
     expect(indexFields('Order')).toContain('organizationId,displayNumber')
     expect(schema.OrderItem.attributes.scanCode.unique).toBe(true)
     expect(schema.OrderIssueItem.attributes.orderItemId.unique).toBe(true)

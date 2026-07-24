@@ -24,7 +24,7 @@ export function createClientsRouter({ sequelize, env }) {
   const authenticate = createAuthenticate({
     authService: createAuthService({ sequelize, env }),
   })
-  const { Client, ClientAddress, ClientConsent } = sequelize.models
+  const { Client, ClientAddress, ClientConsent, Order, OrderItem } = sequelize.models
 
   const findClient = async (id, organizationId, options = {}) => {
     const client = await Client.findOne({
@@ -95,6 +95,34 @@ export function createClientsRouter({ sequelize, env }) {
     })
     res.json(success(client, req.correlationId))
   })
+
+  router.get(
+    '/:id/orders',
+    requirePermission('clients.view'),
+    requirePermission('orders.view'),
+    async (req, res) => {
+      const client = await findClient(req.params.id, req.auth.organizationId)
+      const orders = await Order.findAll({
+        where: {
+          organizationId: req.auth.organizationId,
+          clientId: client.id,
+          branchId: { [Op.in]: req.auth.branchIds },
+        },
+        include: [
+          {
+            model: OrderItem,
+            as: 'items',
+            attributes: ['id'],
+          },
+        ],
+        order: [
+          ['createdAt', 'DESC'],
+          ['id', 'DESC'],
+        ],
+      })
+      res.json(success(orders, req.correlationId))
+    },
+  )
 
   router.patch('/:id', requirePermission('clients.update'), async (req, res) => {
     const input = clientUpdateSchema.parse(req.body)

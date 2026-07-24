@@ -409,7 +409,7 @@ export const schema = {
       indexes: [
         {
           unique: true,
-          fields: ['organizationId', 'acceptanceLocationId', 'sequence'],
+          fields: ['organizationId', 'acceptanceLocationId', 'acceptedOn', 'sequence'],
         },
         { unique: true, fields: ['organizationId', 'displayNumber'] },
         { fields: ['organizationId', 'clientId', 'createdAt'] },

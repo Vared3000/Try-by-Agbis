@@ -1,12 +1,18 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
+import { ClientProfilePanel } from '../features/clients/ClientProfilePanel.jsx'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
+import { apiError } from './workspace-utils.js'
 
-export function ClientsPage({ onUseClient }) {
+export function ClientsPage() {
   const queryClient = useQueryClient()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const selectedClientId = location.pathname.match(/^\/clients\/([^/]+)$/)?.[1] || ''
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
   const [createOpen, setCreateOpen] = useState(false)
@@ -19,55 +25,113 @@ export function ClientsPage({ onUseClient }) {
         })
       ).data.data,
   })
+  const client = useQuery({
+    queryKey: ['client', selectedClientId],
+    queryFn: async () => (await apiClient.get(`/clients/${selectedClientId}`)).data.data,
+    enabled: Boolean(selectedClientId),
+  })
+  const clientOrders = useQuery({
+    queryKey: ['client-orders', selectedClientId],
+    queryFn: async () =>
+      (await apiClient.get(`/clients/${selectedClientId}/orders`)).data.data,
+    enabled: Boolean(selectedClientId),
+  })
 
   return (
-    <section className="panel">
-      <div className="module-toolbar">
-        <div>
-          <p className="eyebrow">Клиентская база</p>
-          <h2>Клиенты</h2>
-          <p>Поиск по ФИО, названию или номеру телефона.</p>
+    <div className="stack">
+      <section className="panel">
+        <div className="module-toolbar">
+          <div>
+            <p className="eyebrow">Клиентская база</p>
+            <h2>Клиенты</h2>
+            <p>Выберите клиента, чтобы увидеть контакты и всю историю заказов.</p>
+          </div>
+          <button className="primary-button" onClick={() => setCreateOpen(true)}>
+            + Создать клиента
+          </button>
         </div>
-        <button className="primary-button" onClick={() => setCreateOpen(true)}>
-          + Создать клиента
-        </button>
-      </div>
-      <div className="table-toolbar">
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Телефон или ФИО"
-        />
-        <span>{clients.data?.length ?? 0} клиентов</span>
-      </div>
-      <div className="data-list">
-        {(clients.data ?? []).map((client) => (
-          <article key={client.id}>
-            <div>
-              <strong>{client.fullName}</strong>
-              <span>{client.phone || client.email || 'Контакты не указаны'}</span>
-            </div>
-            {onUseClient && (
-              <button className="text-button" onClick={() => onUseClient(client)}>
-                В заказ
+      </section>
+
+      <div className="client-workspace">
+        <section className="panel client-directory">
+          <div className="table-toolbar">
+            <input
+              autoFocus
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Телефон или ФИО"
+              aria-label="Поиск клиентов"
+            />
+            <span>{clients.data?.length ?? 0} клиентов</span>
+          </div>
+          <div className="client-list">
+            {(clients.data ?? []).map((clientRow) => (
+              <button
+                key={clientRow.id}
+                className={`client-list-row ${
+                  selectedClientId === clientRow.id ? 'active' : ''
+                }`}
+                onClick={() => navigate(`/clients/${clientRow.id}`)}
+                aria-current={selectedClientId === clientRow.id ? 'true' : undefined}
+              >
+                <span className="avatar">
+                  {clientRow.fullName.slice(0, 1).toUpperCase()}
+                </span>
+                <span>
+                  <strong>{clientRow.fullName}</strong>
+                  <small>
+                    {clientRow.phone || clientRow.email || 'Контакты не указаны'}
+                  </small>
+                </span>
+                <b>›</b>
               </button>
+            ))}
+            {clients.isPending && (
+              <div className="empty-state compact">Загружаем клиентов…</div>
             )}
-          </article>
-        ))}
-        {!clients.isPending && !clients.data?.length && (
-          <div className="empty-state compact">Клиенты не найдены</div>
+            {!clients.isPending && !clients.data?.length && (
+              <div className="empty-state compact">Клиенты не найдены</div>
+            )}
+          </div>
+        </section>
+
+        {selectedClientId ? (
+          <ClientProfilePanel
+            client={client.data}
+            error={
+              client.error
+                ? apiError(client.error)
+                : clientOrders.error
+                  ? apiError(clientOrders.error)
+                  : ''
+            }
+            loading={client.isPending || clientOrders.isPending}
+            orders={clientOrders.data ?? []}
+            onClose={() => navigate('/clients')}
+            onNewOrder={() =>
+              navigate(`/orders?clientId=${encodeURIComponent(selectedClientId)}`)
+            }
+            onOpenOrder={(orderId) => navigate(`/orders/${orderId}`)}
+          />
+        ) : (
+          <section className="panel client-profile-placeholder">
+            <span>◉</span>
+            <h2>Выберите клиента</h2>
+            <p>Справа появятся контакты, активные заказы и полная история обращений.</p>
+          </section>
         )}
       </div>
+
       {createOpen && (
         <ClientPickerModal
           onClose={() => setCreateOpen(false)}
           onSelect={(client) => {
             queryClient.invalidateQueries({ queryKey: ['clients-page'] })
             queryClient.invalidateQueries({ queryKey: ['clients'] })
-            onUseClient?.(client)
+            navigate(`/clients/${client.id}`)
           }}
         />
       )}
-    </section>
+    </div>
   )
 }
