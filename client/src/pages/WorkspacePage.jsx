@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
 import { useAuth } from '../app/auth-context.js'
@@ -30,11 +30,12 @@ const endpoints = {
 
 export function WorkspacePage() {
   const auth = useAuth()
-  const [section, setSection] = useState('overview')
-  const [ordersInitialStatus, setOrdersInitialStatus] = useState('')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const pathSection = location.pathname.split('/').filter(Boolean)[0] || 'overview'
+  const section = navigation.some(([id]) => id === pathSection) ? pathSection : 'overview'
   const openOrders = (status = '') => {
-    setOrdersInitialStatus(status)
-    setSection('orders')
+    navigate(status ? `/orders?status=${encodeURIComponent(status)}` : '/orders')
   }
   const list = useQuery({
     queryKey: ['workspace', section],
@@ -67,7 +68,7 @@ export function WorkspacePage() {
             <button
               key={id}
               className={section === id ? 'active' : ''}
-              onClick={() => setSection(id)}
+              onClick={() => navigate(id === 'overview' ? '/' : `/${id}`)}
             >
               <span>{icon}</span>
               {label}
@@ -146,9 +147,7 @@ export function WorkspacePage() {
         {section === 'production' && <ProductionPage />}
 
         {section === 'clients' && <ClientsPage />}
-        {section === 'orders' && (
-          <OrdersPage key={ordersInitialStatus} initialStatus={ordersInitialStatus} />
-        )}
+        {section === 'orders' && <OrdersPage />}
         {section === 'nomenclature' && <NomenclaturePage />}
         {section === 'catalog' && <CatalogPage />}
         {section === 'pricing' && <PriceListsPage />}

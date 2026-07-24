@@ -1,18 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
+import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
 import { apiError, money, openApiDocument, orderStatusLabel } from './workspace-utils.js'
 
 const findName = (rows, id) => rows?.find((row) => row.id === id)?.name
 
-export function OrdersPage({ initialStatus = '' }) {
+export function OrdersPage() {
   const queryClient = useQueryClient()
-  const [selectedOrderId, setSelectedOrderId] = useState('')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const selectedOrderId = location.pathname.match(/^\/orders\/([^/]+)$/)?.[1] || ''
+  const orderStatus = new URLSearchParams(location.search).get('status') || ''
+  const setSelectedOrderId = (id) =>
+    navigate(id ? `/orders/${id}${location.search}` : '/orders')
+  const setOrderStatus = (status) =>
+    navigate(
+      `${location.pathname}${status ? `?status=${encodeURIComponent(status)}` : ''}`,
+    )
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
   const [orderSearch, setOrderSearch] = useState('')
-  const [orderStatus, setOrderStatus] = useState(initialStatus)
+  const debouncedOrderSearch = useDebouncedValue(orderSearch)
   const [orderForm, setOrderForm] = useState({
     clientId: '',
     branchId: '',
@@ -42,13 +53,13 @@ export function OrdersPage({ initialStatus = '' }) {
     queryFn: async () => (await apiClient.get('/clients?pageSize=100')).data.data,
   })
   const orders = useQuery({
-    queryKey: ['orders', orderSearch, orderStatus],
+    queryKey: ['orders', debouncedOrderSearch, orderStatus],
     queryFn: async () =>
       (
         await apiClient.get('/orders', {
           params: {
             pageSize: 100,
-            search: orderSearch || undefined,
+            search: debouncedOrderSearch || undefined,
             status: orderStatus || undefined,
           },
         })
@@ -113,7 +124,7 @@ export function OrdersPage({ initialStatus = '' }) {
         })
       ).data.data,
     onSuccess: (created) => {
-      setSelectedOrderId(created.id)
+      navigate(`/orders/${created.id}`)
       queryClient.invalidateQueries({ queryKey: ['orders'] })
     },
   })

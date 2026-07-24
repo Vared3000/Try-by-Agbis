@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useDeferredValue, useState } from 'react'
+import { useState } from 'react'
 
 import { apiClient } from '../api/client.js'
+import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { apiError } from './workspace-utils.js'
 
 export function ClientPickerModal({ onClose, onSelect, createOnly = false }) {
@@ -9,7 +10,7 @@ export function ClientPickerModal({ onClose, onSelect, createOnly = false }) {
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(createOnly)
   const [form, setForm] = useState({ fullName: '', phone: '', email: '' })
-  const deferredSearch = useDeferredValue(search.trim())
+  const deferredSearch = useDebouncedValue(search.trim())
   const clients = useQuery({
     queryKey: ['client-picker', deferredSearch],
     queryFn: async () =>

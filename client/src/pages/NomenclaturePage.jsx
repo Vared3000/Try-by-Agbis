@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
 import { apiClient } from '../api/client.js'
+import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { apiError, money } from './workspace-utils.js'
 
 const units = [
@@ -32,15 +33,16 @@ const numberValue = (value) => Number(String(value).replace(',', '.')) || 0
 export function NomenclaturePage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState('')
   const [form, setForm] = useState(emptyForm)
   const list = useQuery({
-    queryKey: ['nomenclature', search],
+    queryKey: ['nomenclature', debouncedSearch],
     queryFn: async () =>
       (
         await apiClient.get('/nomenclature', {
-          params: search ? { search } : {},
+          params: debouncedSearch ? { search: debouncedSearch } : {},
         })
       ).data.data,
   })

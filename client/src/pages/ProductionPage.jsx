@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { apiClient } from '../api/client.js'
+import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { apiError } from './workspace-utils.js'
 
 export function ProductionPage() {
   const queryClient = useQueryClient()
+  const scannerRef = useRef(null)
   const [scanCode, setScanCode] = useState('')
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [status, setStatus] = useState('')
   const [item, setItem] = useState(null)
   const [error, setError] = useState('')
@@ -16,12 +19,12 @@ export function ProductionPage() {
     queryFn: async () => (await apiClient.get('/production/routes')).data.data,
   })
   const queue = useQuery({
-    queryKey: ['production-items', search, status],
+    queryKey: ['production-items', debouncedSearch, status],
     queryFn: async () =>
       (
         await apiClient.get('/production/items', {
           params: {
-            ...(search ? { search } : {}),
+            ...(debouncedSearch ? { search: debouncedSearch } : {}),
             ...(status ? { status } : {}),
           },
         })
@@ -36,9 +39,11 @@ export function ProductionPage() {
         `/production/items/scan/${encodeURIComponent(code.trim())}`,
       )
       setItem(response.data.data)
+      window.requestAnimationFrame(() => scannerRef.current?.select())
     } catch (requestError) {
       setItem(null)
       setError(apiError(requestError))
+      window.requestAnimationFrame(() => scannerRef.current?.select())
     }
   }
   const transition = useMutation({
@@ -83,6 +88,7 @@ export function ProductionPage() {
           className="scan-form"
         >
           <input
+            ref={scannerRef}
             value={scanCode}
             onChange={(event) => setScanCode(event.target.value)}
             placeholder="QR или Code 128"
@@ -93,167 +99,182 @@ export function ProductionPage() {
         {error && <p className="form-error">{error}</p>}
       </section>
 
-      <section className="panel production-queue">
-        <div className="panel-title">
-          <div>
-            <p className="eyebrow">Очередь</p>
-            <h2>Изделия в производстве</h2>
-          </div>
-          <span>{queue.data?.meta?.total ?? 0} позиций</span>
-        </div>
-        <div className="production-filters">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Заказ, клиент, телефон, изделие или код"
-          />
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">Все рабочие статусы</option>
-            <option value="accepted">Ожидают запуска</option>
-            <option value="cleaning">Чистка</option>
-            <option value="quality_control">Контроль качества</option>
-            <option value="packing">Упаковка</option>
-            <option value="rework">Доработка</option>
-            <option value="ready">Готовы к выдаче</option>
-          </select>
-        </div>
-        {queue.isPending ? (
-          <div className="empty-state compact">Загружаем очередь…</div>
-        ) : queue.error ? (
-          <p className="form-error">{apiError(queue.error)}</p>
-        ) : !queue.data?.data?.length ? (
-          <div className="empty-state compact">В выбранном разделе изделий нет</div>
-        ) : (
-          <div className="production-queue-list">
-            {queue.data.data.map((row) => (
-              <button
-                key={row.id}
-                className={item?.id === row.id ? 'active' : ''}
-                onClick={() => {
-                  setScanCode(row.scanCode)
-                  scan(row.scanCode)
-                }}
-              >
-                <div>
-                  <strong>
-                    {row.description ||
-                      row.nomenclature?.name ||
-                      row.garmentType?.name ||
-                      'Изделие'}
-                  </strong>
-                  <span>
-                    {row.order?.displayNumber} · {row.order?.client?.fullName}
-                  </span>
-                  <small>{row.scanCode}</small>
-                </div>
-                <div className="queue-status">
-                  <span className={`status-pill status-${row.status}`}>
-                    {statusLabel(row.status)}
-                  </span>
-                  {row.order?.dueAt && (
-                    <small className={isOverdue(row.order.dueAt) ? 'overdue' : ''}>
-                      Срок {new Date(row.order.dueAt).toLocaleString('ru-RU')}
-                    </small>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {item && (
-        <section className="panel production-card">
-          <div className="order-summary">
+      <div className="production-workspace">
+        <section className="panel production-queue">
+          <div className="panel-title">
             <div>
-              <span className="status-pill">{item.status}</span>
-              <h2>{item.description || item.nomenclature?.name || 'Изделие'}</h2>
-              <p>Заказ {item.order?.displayNumber}</p>
+              <p className="eyebrow">Очередь</p>
+              <h2>Изделия в производстве</h2>
             </div>
-            <code>{item.scanCode}</code>
+            <span>{queue.data?.meta?.total ?? 0} позиций</span>
           </div>
-          {!route ? (
-            <p className="form-error">Для изделия не назначен производственный маршрут</p>
+          <div className="production-filters">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Заказ, клиент, телефон, изделие или код"
+            />
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+              <option value="">Все рабочие статусы</option>
+              <option value="accepted">Ожидают запуска</option>
+              <option value="cleaning">Чистка</option>
+              <option value="quality_control">Контроль качества</option>
+              <option value="packing">Упаковка</option>
+              <option value="rework">Доработка</option>
+              <option value="ready">Готовы к выдаче</option>
+            </select>
+          </div>
+          {queue.isPending ? (
+            <div className="empty-state compact">Загружаем очередь…</div>
+          ) : queue.error ? (
+            <p className="form-error">{apiError(queue.error)}</p>
+          ) : !queue.data?.data?.length ? (
+            <div className="empty-state compact">В выбранном разделе изделий нет</div>
           ) : (
-            <>
-              <div className="production-route">
-                {route.stages.map((routeStage, index) => {
-                  const history = [...histories]
-                    .reverse()
-                    .find((row) => row.stageId === routeStage.stageId)
-                  const current = latest?.stageId === routeStage.stageId
-                  return (
-                    <div
-                      key={routeStage.id}
-                      className={`${history?.status || ''} ${current ? 'current' : ''}`}
-                    >
-                      <span>{index + 1}</span>
-                      <strong>{routeStage.stage?.name}</strong>
-                      <small>
-                        {{
-                          in_progress: 'В работе',
-                          completed: 'Завершён',
-                          rework: 'На доработке',
-                        }[history?.status] || 'Ожидает'}
+            <div className="production-queue-list">
+              {queue.data.data.map((row) => (
+                <button
+                  key={row.id}
+                  className={item?.id === row.id ? 'active' : ''}
+                  onClick={() => {
+                    setScanCode(row.scanCode)
+                    scan(row.scanCode)
+                  }}
+                >
+                  <div>
+                    <strong>
+                      {row.description ||
+                        row.nomenclature?.name ||
+                        row.garmentType?.name ||
+                        'Изделие'}
+                    </strong>
+                    <span>
+                      {row.order?.displayNumber} · {row.order?.client?.fullName}
+                    </span>
+                    <small>{row.scanCode}</small>
+                  </div>
+                  <div className="queue-status">
+                    <span className={`status-pill status-${row.status}`}>
+                      {statusLabel(row.status)}
+                    </span>
+                    {row.order?.dueAt && (
+                      <small className={isOverdue(row.order.dueAt) ? 'overdue' : ''}>
+                        Срок {new Date(row.order.dueAt).toLocaleString('ru-RU')}
                       </small>
-                    </div>
-                  )
-                })}
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {item ? (
+          <section className="panel production-card">
+            <div className="order-summary">
+              <div>
+                <span className="status-pill">{statusLabel(item.status)}</span>
+                <h2>{item.description || item.nomenclature?.name || 'Изделие'}</h2>
+                <p>Заказ {item.order?.displayNumber}</p>
               </div>
-              <div className="production-actions">
-                {latest?.status === 'in_progress' ? (
-                  <>
+              <details className="technical-details">
+                <summary>Код бирки</summary>
+                <code>{item.scanCode}</code>
+              </details>
+            </div>
+            {!route ? (
+              <p className="form-error">
+                Для изделия не назначен производственный маршрут
+              </p>
+            ) : (
+              <>
+                <div className="production-route">
+                  {route.stages.map((routeStage, index) => {
+                    const history = [...histories]
+                      .reverse()
+                      .find((row) => row.stageId === routeStage.stageId)
+                    const current = latest?.stageId === routeStage.stageId
+                    return (
+                      <div
+                        key={routeStage.id}
+                        className={`${history?.status || ''} ${current ? 'current' : ''}`}
+                      >
+                        <span>{index + 1}</span>
+                        <strong>{routeStage.stage?.name}</strong>
+                        <small>
+                          {{
+                            in_progress: 'В работе',
+                            completed: 'Завершён',
+                            rework: 'На доработке',
+                          }[history?.status] || 'Ожидает'}
+                        </small>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="production-actions">
+                  {latest?.status === 'in_progress' ? (
+                    <>
+                      <button
+                        className="primary-button"
+                        disabled={transition.isPending}
+                        onClick={() =>
+                          transition.mutate({
+                            stageId: latest.stageId,
+                            action: 'complete',
+                          })
+                        }
+                      >
+                        Завершить этап «{activeStage?.stage?.name}»
+                      </button>
+                      {activeStage?.stage?.code === 'QUALITY_CONTROL' && (
+                        <button
+                          className="secondary-button danger-button"
+                          disabled={transition.isPending}
+                          onClick={() =>
+                            transition.mutate({
+                              stageId: latest.stageId,
+                              action: 'rework',
+                            })
+                          }
+                        >
+                          Вернуть на доработку
+                        </button>
+                      )}
+                    </>
+                  ) : nextStage ? (
                     <button
                       className="primary-button"
                       disabled={transition.isPending}
                       onClick={() =>
                         transition.mutate({
-                          stageId: latest.stageId,
-                          action: 'complete',
+                          stageId: nextStage.stageId,
+                          action: 'start',
                         })
                       }
                     >
-                      Завершить этап «{activeStage?.stage?.name}»
+                      Начать этап «{nextStage.stage?.name}»
                     </button>
-                    {activeStage?.stage?.code === 'QUALITY_CONTROL' && (
-                      <button
-                        className="secondary-button danger-button"
-                        disabled={transition.isPending}
-                        onClick={() =>
-                          transition.mutate({
-                            stageId: latest.stageId,
-                            action: 'rework',
-                          })
-                        }
-                      >
-                        Вернуть на доработку
-                      </button>
-                    )}
-                  </>
-                ) : nextStage ? (
-                  <button
-                    className="primary-button"
-                    disabled={transition.isPending}
-                    onClick={() =>
-                      transition.mutate({
-                        stageId: nextStage.stageId,
-                        action: 'start',
-                      })
-                    }
-                  >
-                    Начать этап «{nextStage.stage?.name}»
-                  </button>
-                ) : (
-                  <span className="online-badge">Изделие готово к выдаче</span>
+                  ) : (
+                    <span className="online-badge">Изделие готово к выдаче</span>
+                  )}
+                </div>
+                {transition.error && (
+                  <p className="form-error">{apiError(transition.error)}</p>
                 )}
-              </div>
-              {transition.error && (
-                <p className="form-error">{apiError(transition.error)}</p>
-              )}
-            </>
-          )}
-        </section>
-      )}
+              </>
+            )}
+          </section>
+        ) : (
+          <section className="panel production-placeholder">
+            <span>⌁</span>
+            <h2>Выберите или отсканируйте изделие</h2>
+            <p>
+              Карточка операции появится здесь. После действия фокус вернётся в сканер.
+            </p>
+          </section>
+        )}
+      </div>
     </div>
   )
 }

@@ -2,18 +2,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { apiClient } from '../api/client.js'
+import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
 
 export function ClientsPage({ onUseClient }) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [createOpen, setCreateOpen] = useState(false)
   const clients = useQuery({
-    queryKey: ['clients-page', search],
+    queryKey: ['clients-page', debouncedSearch],
     queryFn: async () =>
       (
         await apiClient.get('/clients', {
-          params: { search: search || undefined, pageSize: 100 },
+          params: { search: debouncedSearch || undefined, pageSize: 100 },
         })
       ).data.data,
   })
