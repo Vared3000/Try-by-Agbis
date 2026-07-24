@@ -14,7 +14,7 @@ vi.mock('../api/client.js', () => ({
 
 const order = {
   id: 'order-1',
-  displayNumber: 'RECEPTION-1',
+  displayNumber: '000001-1',
   branchId: 'branch-1',
   acceptanceLocationId: 'location-1',
   totalAmount: '10000',

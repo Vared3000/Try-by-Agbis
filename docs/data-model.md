@@ -79,7 +79,7 @@ erDiagram
 ## Критические ограничения
 
 - `Branch.code`: unique `(organizationId, code)`;
-- `Order.number`: unique `(organizationId, acceptanceLocationId, sequence)`;
+- `Order.number`: unique `(organizationId, branchId, sequence)`;
 - `Order.displayNumber`: unique `(organizationId, displayNumber)`;
 - `OrderItem.scanCode`: global unique, не содержит персональных данных;
 - `PriceListItem`: unique `(priceListId, serviceId, garmentTypeId)`;
@@ -95,7 +95,7 @@ erDiagram
 ## Сущности, добавленные к исходному перечню
 
 - `UserBranch` — явный доступ пользователя к нескольким филиалам;
-- `NumberSequence` — атомарные последовательности точек приёма;
+- `NumberSequence` — атомарные постоянные последовательности подразделений;
 - `OrderIssue` и `OrderIssueItem` — доказуемая, идемпотентная частичная выдача;
 - `OrderStatusHistory` — история переходов заказа.
 

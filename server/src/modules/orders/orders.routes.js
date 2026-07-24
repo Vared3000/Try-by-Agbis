@@ -231,7 +231,15 @@ export function createOrdersRouter({ sequelize, env }) {
           },
           transaction,
         })
-        if (!location || !client) {
+        const branch = await models.Branch.findOne({
+          where: {
+            id: input.branchId,
+            organizationId: req.auth.organizationId,
+            archivedAt: null,
+          },
+          transaction,
+        })
+        if (!location || !client || !branch) {
           throw new ApiError({
             status: 422,
             code: 'ORDER_REFERENCE_INVALID',
@@ -240,13 +248,21 @@ export function createOrdersRouter({ sequelize, env }) {
         }
 
         const businessDate = new Date().toISOString().slice(0, 10)
+        const currentMaximum = await models.Order.max('sequence', {
+          where: {
+            organizationId: req.auth.organizationId,
+            branchId: branch.id,
+          },
+          transaction,
+        })
         const [sequenceRow] = await models.NumberSequence.findOrCreate({
           where: {
             organizationId: req.auth.organizationId,
-            acceptanceLocationId: location.id,
-            businessDate,
+            branchId: branch.id,
           },
-          defaults: { nextValue: 1 },
+          defaults: {
+            nextValue: (BigInt(currentMaximum ?? 0) + 1n).toString(),
+          },
           transaction,
         })
         await sequenceRow.reload({ transaction, lock: transaction.LOCK.UPDATE })
@@ -256,8 +272,7 @@ export function createOrdersRouter({ sequelize, env }) {
           { transaction },
         )
         const displayNumber = orderDisplayNumber({
-          locationCode: location.code,
-          businessDate,
+          branchNumber: branch.number,
           sequence,
         })
         return models.Order.create(

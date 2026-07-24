@@ -7,7 +7,7 @@ import {
 } from '../modules/orders/print-templates.js'
 
 const order = {
-  displayNumber: 'RECEPTION-15-6',
+  displayNumber: '000015-1',
   status: 'accepted',
   createdAt: '2026-07-24T10:00:00.000Z',
   dueAt: '2026-07-27T10:00:00.000Z',
@@ -77,7 +77,7 @@ describe('print templates', () => {
     expect(svg).toContain('width="55mm" height="55mm"')
     expect(svg).toContain('Ковер шерстяной')
     expect(html).toContain('@page { size: 55mm 55mm; margin: 0; }')
-    expect(html).toContain('Бирки RECEPTION-15-6: 1 шт.')
+    expect(html).toContain('Бирки 000015-1: 1 шт.')
   })
 
   it('marks an unmeasured square-meter position in the customer receipt', () => {

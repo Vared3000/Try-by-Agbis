@@ -35,7 +35,7 @@ describe('client workspace UX', () => {
         return response([
           {
             id: 'order-1',
-            displayNumber: 'RECEPTION-20260724-1-1',
+            displayNumber: '000001-1',
             status: 'ready',
             totalAmount: '250000',
             createdAt: '2026-07-24T10:00:00.000Z',
@@ -71,7 +71,7 @@ describe('client workspace UX', () => {
       </QueryClientProvider>,
     )
 
-    expect(await screen.findByText('RECEPTION-20260724-1-1')).toBeVisible()
+    expect(await screen.findByText('000001-1')).toBeVisible()
     expect(screen.getByText('1 поз.')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: '+ Новый заказ этому клиенту' }))
     expect(screen.getByText('/orders?clientId=client-1')).toBeVisible()

@@ -89,6 +89,7 @@ export const schema = {
   ),
   Branch: tenantEntity(
     {
+      number: { type: DataTypes.INTEGER, allowNull: false },
       code: string(32),
       name: string(),
       address: { type: DataTypes.TEXT, allowNull: true },
@@ -97,7 +98,14 @@ export const schema = {
     },
     {
       tableName: 'branches',
-      indexes: [{ unique: true, fields: ['organizationId', 'code'] }],
+      indexes: [
+        { unique: true, fields: ['organizationId', 'code'] },
+        {
+          unique: true,
+          name: 'branches_organization_number_unique',
+          fields: ['organizationId', 'number'],
+        },
+      ],
     },
   ),
   Location: tenantEntity(
@@ -414,8 +422,7 @@ export const schema = {
   ),
   NumberSequence: tenantEntity(
     {
-      acceptanceLocationId: uuid({ tableName: 'locations', key: 'id' }),
-      businessDate: { type: DataTypes.DATEONLY, allowNull: false },
+      branchId: uuid({ tableName: 'branches', key: 'id' }),
       nextValue: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 1 },
     },
     {
@@ -423,7 +430,8 @@ export const schema = {
       indexes: [
         {
           unique: true,
-          fields: ['organizationId', 'acceptanceLocationId', 'businessDate'],
+          name: 'number_sequences_organization_branch_unique',
+          fields: ['organizationId', 'branchId'],
         },
       ],
     },
@@ -451,7 +459,8 @@ export const schema = {
       indexes: [
         {
           unique: true,
-          fields: ['organizationId', 'acceptanceLocationId', 'acceptedOn', 'sequence'],
+          name: 'orders_organization_id_branch_id_sequence',
+          fields: ['organizationId', 'branchId', 'sequence'],
         },
         { unique: true, fields: ['organizationId', 'displayNumber'] },
         { fields: ['organizationId', 'clientId', 'createdAt'] },

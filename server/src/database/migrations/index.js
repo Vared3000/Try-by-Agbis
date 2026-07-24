@@ -7,6 +7,7 @@ import * as orderNumberScope from './202607240005-order-number-scope.js'
 import * as defectGroups from './202607240006-defect-groups.js'
 import * as priceListNomenclature from './202607240007-price-list-nomenclature.js'
 import * as priceListServiceNullability from './202607240008-price-list-service-nullability.js'
+import * as orderNumberFormat from './202607240009-order-number-format.js'
 
 export const migrations = [
   initialSchema,
@@ -18,4 +19,5 @@ export const migrations = [
   defectGroups,
   priceListNomenclature,
   priceListServiceNullability,
+  orderNumberFormat,
 ]

@@ -66,6 +66,7 @@ integration('auth API with PostgreSQL', () => {
       {
         id: ids.branch,
         organizationId: ids.organization,
+        number: 1,
         code: `AUTH-${suffix}`,
         name: 'Assigned branch',
         version: 0,
@@ -73,6 +74,7 @@ integration('auth API with PostgreSQL', () => {
       {
         id: ids.otherBranch,
         organizationId: ids.otherOrganization,
+        number: 1,
         code: `OTHER-${suffix}`,
         name: 'Foreign branch',
         version: 0,
@@ -632,8 +634,8 @@ integration('auth API with PostgreSQL', () => {
         clientId: client.id,
       })
       .expect(201)
-    expect(order.body.data.displayNumber).toMatch(/^RECEPTION-/)
-    expect(order.body.data.sequence).toBe('1')
+    expect(order.body.data.displayNumber).toBe('000002-1')
+    expect(order.body.data.sequence).toBe('2')
     expect(order.body.data.displayNumber).not.toBe('RECEPTION-20250101-1-1')
 
     const updatedOrder = await request(app)

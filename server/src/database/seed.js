@@ -98,6 +98,7 @@ export async function seed(sequelize, logger) {
       where: { id: ids.branch },
       defaults: {
         organizationId: ids.organization,
+        number: 1,
         code: 'DEMO',
         name: 'Демонстрационный филиал',
         version: 0,

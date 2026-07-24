@@ -22,10 +22,6 @@ function dateOnly(value) {
   return value.toISOString().slice(0, 10)
 }
 
-function checkDigit(value) {
-  return String([...String(value)].reduce((sum, digit) => sum + Number(digit), 0) % 10)
-}
-
 function itemTotal({ unitPrice, quantity, length, width }) {
   const measuredQuantity =
     length && width ? Number(length) * Number(width) : Number(length || quantity || 1)
@@ -318,6 +314,16 @@ export async function seedDemoOrders(models, ids, transaction) {
   let nextStageHistory = 1
   let nextPayment = 1
   let nextIssue = 1
+  let nextOrderSequence =
+    BigInt(
+      (await models.Order.max('sequence', {
+        where: {
+          organizationId: ids.organization,
+          branchId: ids.branch,
+        },
+        transaction,
+      })) ?? 0,
+    ) + 1n
 
   for (const [orderIndex, order] of orders.entries()) {
     const createdAt = relativeDate(...order.created)
@@ -328,7 +334,13 @@ export async function seedDemoOrders(models, ids, transaction) {
       order.paidAmount ??
       (['partially_issued', 'issued'].includes(order.status) ? Number(totalAmount) : 0)
     const currentOrderId = orderId(orderIndex + 1)
-    const sequence = String(9001 + orderIndex)
+    const existingOrder = await models.Order.findByPk(currentOrderId, {
+      attributes: ['sequence', 'displayNumber'],
+      transaction,
+    })
+    const sequence = existingOrder?.sequence ?? String(nextOrderSequence++)
+    const displayNumber =
+      existingOrder?.displayNumber ?? `${String(sequence).padStart(6, '0')}-1`
 
     await models.Order.upsert(
       {
@@ -338,7 +350,7 @@ export async function seedDemoOrders(models, ids, transaction) {
         acceptanceLocationId: ids.location,
         clientId: clientId(order.client),
         sequence,
-        displayNumber: `RECEPTION-${sequence}-${checkDigit(sequence)}`,
+        displayNumber,
         acceptedOn: dateOnly(createdAt),
         dueAt,
         status: order.status,
@@ -496,5 +508,30 @@ export async function seedDemoOrders(models, ids, transaction) {
         nextIssue += 1
       }
     }
+  }
+
+  const maximumSequence =
+    BigInt(
+      (await models.Order.max('sequence', {
+        where: {
+          organizationId: ids.organization,
+          branchId: ids.branch,
+        },
+        transaction,
+      })) ?? 0,
+    ) + 1n
+  const [sequenceRow] = await models.NumberSequence.findOrCreate({
+    where: {
+      organizationId: ids.organization,
+      branchId: ids.branch,
+    },
+    defaults: { nextValue: maximumSequence.toString() },
+    transaction,
+  })
+  if (BigInt(sequenceRow.nextValue) < maximumSequence) {
+    await sequenceRow.update(
+      { nextValue: maximumSequence.toString() },
+      { transaction },
+    )
   }
 }
