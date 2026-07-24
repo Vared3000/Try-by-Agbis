@@ -14,6 +14,7 @@ import {
   canIssueWholeOrder,
   remainingOrderItems,
 } from '../features/orders/issue-availability.js'
+import { NomenclatureCombobox } from '../features/orders/NomenclatureCombobox.jsx'
 import { OrderCreatePanel } from '../features/orders/OrderCreatePanel.jsx'
 import { OrderListPanel } from '../features/orders/OrderListPanel.jsx'
 import { OrderMetaEditor } from '../features/orders/OrderMetaEditor.jsx'
@@ -478,38 +479,20 @@ function OrderEditor({
           }}
         >
           <div className="form-grid">
-            <label className="field-wide">
-              Позиция номенклатуры
-              <select
-                ref={itemSelectRef}
-                required
-                value={itemForm.nomenclatureItemId}
-                onChange={(event) =>
-                  setItemForm((value) => ({
-                    ...value,
-                    nomenclatureItemId: event.target.value,
-                    quantity: '1',
-                    length: '',
-                    width: '',
-                  }))
-                }
-              >
-                <option value="">Выберите позицию</option>
-                {nomenclature.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.name} — {money(row.unitPrice)} /{' '}
-                    {
-                      {
-                        piece: 'шт.',
-                        square_meter: 'м²',
-                        linear_meter: 'пог. м',
-                        kilogram: 'кг',
-                      }[row.unit]
-                    }
-                  </option>
-                ))}
-              </select>
-            </label>
+            <NomenclatureCombobox
+              ref={itemSelectRef}
+              items={nomenclature}
+              value={itemForm.nomenclatureItemId}
+              onChange={(nomenclatureItemId) =>
+                setItemForm((value) => ({
+                  ...value,
+                  nomenclatureItemId,
+                  quantity: '1',
+                  length: '',
+                  width: '',
+                }))
+              }
+            />
             <ChoiceChecks
               title="Дефекты при приёмке"
               rows={defects}
@@ -674,7 +657,10 @@ function OrderEditor({
               </strong>
             </div>
           )}
-          <button className="primary-button">
+          <button
+            className="primary-button"
+            disabled={!itemForm.nomenclatureItemId || addItem.isPending}
+          >
             Добавить позицию в заказ <kbd>F4</kbd>
           </button>
           {addItem.error && <p className="form-error">{apiError(addItem.error)}</p>}
