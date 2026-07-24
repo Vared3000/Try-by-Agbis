@@ -9,7 +9,7 @@ import { NomenclaturePage } from './NomenclaturePage.jsx'
 import { OrdersPage } from './OrdersPage.jsx'
 import { PriceListsPage } from './PriceListsPage.jsx'
 import { ProductionPage } from './ProductionPage.jsx'
-import { money } from './workspace-utils.js'
+import { money, orderStatusLabel } from './workspace-utils.js'
 
 const navigation = [
   ['overview', 'Обзор', '⌂'],
@@ -31,6 +31,11 @@ const endpoints = {
 export function WorkspacePage() {
   const auth = useAuth()
   const [section, setSection] = useState('overview')
+  const [ordersInitialStatus, setOrdersInitialStatus] = useState('')
+  const openOrders = (status = '') => {
+    setOrdersInitialStatus(status)
+    setSection('orders')
+  }
   const list = useQuery({
     queryKey: ['workspace', section],
     queryFn: async () => (await apiClient.get(endpoints[section])).data.data,
@@ -98,12 +103,14 @@ export function WorkspacePage() {
               label="Заказов"
               value={operational.data?.totalOrders ?? '—'}
               hint="во всех доступных филиалах"
+              onClick={() => openOrders()}
             />
             <Metric
               label="Готовы к выдаче"
               value={operational.data?.byStatus?.ready ?? 0}
               hint="требуют внимания"
               accent
+              onClick={() => openOrders('ready')}
             />
             <Metric
               label="Чистая выручка"
@@ -123,10 +130,14 @@ export function WorkspacePage() {
             </div>
             <div className="status-grid">
               {Object.entries(operational.data?.byStatus ?? {}).map(([status, count]) => (
-                <div className="status-card" key={status}>
+                <button
+                  className="status-card"
+                  key={status}
+                  onClick={() => openOrders(status)}
+                >
                   <strong>{count}</strong>
-                  <span>{status.replaceAll('_', ' ')}</span>
-                </div>
+                  <span>{orderStatusLabel(status)}</span>
+                </button>
               ))}
             </div>
           </section>
@@ -135,7 +146,9 @@ export function WorkspacePage() {
         {section === 'production' && <ProductionPage />}
 
         {section === 'clients' && <ClientsPage />}
-        {section === 'orders' && <OrdersPage />}
+        {section === 'orders' && (
+          <OrdersPage key={ordersInitialStatus} initialStatus={ordersInitialStatus} />
+        )}
         {section === 'nomenclature' && <NomenclaturePage />}
         {section === 'catalog' && <CatalogPage />}
         {section === 'pricing' && <PriceListsPage />}
@@ -158,13 +171,23 @@ export function WorkspacePage() {
   )
 }
 
-function Metric({ label, value, hint, accent = false }) {
-  return (
-    <article className={`metric-card ${accent ? 'accent' : ''}`}>
+function Metric({ label, value, hint, accent = false, onClick }) {
+  const content = (
+    <>
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{hint}</small>
-    </article>
+    </>
+  )
+  return onClick ? (
+    <button
+      className={`metric-card metric-button ${accent ? 'accent' : ''}`}
+      onClick={onClick}
+    >
+      {content}
+    </button>
+  ) : (
+    <article className={`metric-card ${accent ? 'accent' : ''}`}>{content}</article>
   )
 }
 
@@ -189,7 +212,9 @@ function DataList({ section, data = [], loading }) {
                 <strong>{row.fullName || row.displayNumber || row.type || row.id}</strong>
                 <span>{row.phone || row.status || row.channel}</span>
               </div>
-              <span className="status-pill">{row.status || 'active'}</span>
+              <span className="status-pill">
+                {row.status ? orderStatusLabel(row.status) : 'Активно'}
+              </span>
             </article>
           ))}
         </div>

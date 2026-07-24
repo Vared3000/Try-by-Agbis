@@ -19,6 +19,13 @@ const orderInput = z.object({
   notes: z.string().trim().max(5000).nullable().optional(),
 })
 
+const orderUpdateInput = orderInput
+  .pick({ clientId: true, dueAt: true, notes: true })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Укажите изменяемые поля заказа',
+  })
+
 const decimalInput = z
   .union([z.string().regex(/^\d+([.,]\d{1,3})?$/), z.number().positive().safe()])
   .transform((value) => String(value).replace(',', '.'))
@@ -387,6 +394,66 @@ export function createOrdersRouter({ sequelize, env }) {
       throw missing('ORDER_NOT_FOUND', 'Заказ не найден')
     }
     res.json(success(order, req.correlationId))
+  })
+
+  router.patch('/:id', requirePermission('orders.update'), async (req, res) => {
+    const input = orderUpdateInput.parse(req.body)
+    const updated = await sequelize.transaction(async (transaction) => {
+      const order = await findOrder(req.params.id, req.auth.organizationId, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      })
+      if (order.status !== 'draft' || !req.auth.branchIds.includes(order.branchId)) {
+        throw new ApiError({
+          status: 409,
+          code: 'ORDER_NOT_EDITABLE',
+          message: 'Изменять можно только черновик заказа',
+        })
+      }
+      if (input.clientId) {
+        const client = await models.Client.findOne({
+          where: {
+            id: input.clientId,
+            organizationId: req.auth.organizationId,
+            archivedAt: null,
+          },
+          transaction,
+        })
+        if (!client) {
+          throw new ApiError({
+            status: 422,
+            code: 'ORDER_CLIENT_INVALID',
+            message: 'Клиент недоступен',
+          })
+        }
+      }
+      const before = {
+        clientId: order.clientId,
+        dueAt: order.dueAt,
+        notes: order.notes,
+      }
+      await order.update({ ...input, version: order.version + 1 }, { transaction })
+      await models.AuditLog.create(
+        {
+          organizationId: req.auth.organizationId,
+          actorUserId: req.auth.userId,
+          action: 'order.update',
+          entityType: 'Order',
+          entityId: order.id,
+          correlationId: req.correlationId,
+          before,
+          after: {
+            clientId: order.clientId,
+            dueAt: order.dueAt,
+            notes: order.notes,
+          },
+          occurredAt: new Date(),
+        },
+        { transaction },
+      )
+      return order
+    })
+    res.json(success(updated, req.correlationId))
   })
 
   router.post('/:id/items', requirePermission('orders.update'), async (req, res) => {

@@ -594,6 +594,17 @@ integration('auth API with PostgreSQL', () => {
       .expect(201)
     expect(order.body.data.displayNumber).toMatch(/^RECEPTION-/)
 
+    const updatedOrder = await request(app)
+      .patch(`/api/v1/orders/${order.body.data.id}`)
+      .set('Authorization', authorization)
+      .send({
+        clientId: client.id,
+        dueAt: '2026-08-01T12:00:00.000Z',
+        notes: 'Integration reception note',
+      })
+      .expect(200)
+    expect(updatedOrder.body.data.notes).toBe('Integration reception note')
+
     const item = await request(app)
       .post(`/api/v1/orders/${order.body.data.id}/items`)
       .set('Authorization', authorization)
@@ -617,6 +628,12 @@ integration('auth API with PostgreSQL', () => {
       .set('Authorization', authorization)
       .set('Idempotency-Key', `accept-${suffix}`)
       .expect(200)
+
+    await request(app)
+      .patch(`/api/v1/orders/${order.body.data.id}`)
+      .set('Authorization', authorization)
+      .send({ notes: 'Must stay immutable' })
+      .expect(409)
 
     await request(app)
       .post(`/api/v1/orders/${order.body.data.id}/accept`)

@@ -139,7 +139,13 @@
           "schema": { "type": "string", "format": "uuid" }
         }
       ],
-      "get": { "responses": { "200": { "description": "Order" } } }
+      "get": { "responses": { "200": { "description": "Order" } } },
+      "patch": {
+        "responses": {
+          "200": { "description": "Draft order details updated" },
+          "409": { "description": "Order is no longer editable" }
+        }
+      }
     },
     "/orders/{id}/items": {
       "post": { "responses": { "201": { "description": "Item added" } } }

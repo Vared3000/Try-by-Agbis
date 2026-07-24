@@ -273,6 +273,15 @@ textarea:focus {
   padding: 1.25rem;
   display: grid;
   gap: 0.45rem;
+  color: inherit;
+  text-align: left;
+}
+.metric-button {
+  cursor: pointer;
+}
+.metric-button:hover {
+  border-color: #a7b9ad;
+  transform: translateY(-1px);
 }
 .metric-card > span {
   color: #687a71;
@@ -313,10 +322,18 @@ textarea:focus {
 }
 .status-card {
   background: #f5f7f5;
+  border: 1px solid transparent;
   padding: 1rem;
   border-radius: 12px;
   display: grid;
   gap: 0.25rem;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.status-card:hover {
+  border-color: #abc0b2;
+  background: #eef4ef;
 }
 .status-card strong {
   font-size: 1.4rem;

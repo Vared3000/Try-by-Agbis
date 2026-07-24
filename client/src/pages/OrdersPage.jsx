@@ -3,16 +3,16 @@ import { useEffect, useState } from 'react'
 
 import { apiClient } from '../api/client.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
-import { apiError, money, openApiDocument } from './workspace-utils.js'
+import { apiError, money, openApiDocument, orderStatusLabel } from './workspace-utils.js'
 
 const findName = (rows, id) => rows?.find((row) => row.id === id)?.name
 
-export function OrdersPage() {
+export function OrdersPage({ initialStatus = '' }) {
   const queryClient = useQueryClient()
   const [selectedOrderId, setSelectedOrderId] = useState('')
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
   const [orderSearch, setOrderSearch] = useState('')
-  const [orderStatus, setOrderStatus] = useState('')
+  const [orderStatus, setOrderStatus] = useState(initialStatus)
   const [orderForm, setOrderForm] = useState({
     clientId: '',
     branchId: '',
@@ -145,6 +145,13 @@ export function OrdersPage() {
         contaminationIds: [],
       })
       queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
+    },
+  })
+  const updateOrder = useMutation({
+    mutationFn: (input) => apiClient.patch(`/orders/${selectedOrderId}`, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
     },
   })
   const acceptOrder = useMutation({
@@ -345,6 +352,7 @@ export function OrdersPage() {
             itemForm={itemForm}
             setItemForm={setItemForm}
             addItem={addItem}
+            updateOrder={updateOrder}
             removeItem={removeItem}
             acceptOrder={acceptOrder}
             cancelOrder={cancelOrder}
@@ -396,7 +404,7 @@ export function OrdersPage() {
               </div>
               <div className="row-end">
                 <strong>{money(row.totalAmount)}</strong>
-                <span className="status-pill">{row.status}</span>
+                <span className="status-pill">{orderStatusLabel(row.status)}</span>
               </div>
             </article>
           ))}
@@ -431,6 +439,7 @@ function OrderEditor({
   itemForm,
   setItemForm,
   addItem,
+  updateOrder,
   removeItem,
   acceptOrder,
   cancelOrder,
@@ -441,6 +450,7 @@ function OrderEditor({
 }) {
   const [selectedIssueIds, setSelectedIssueIds] = useState(null)
   const [issueReason, setIssueReason] = useState('')
+  const [metaOpen, setMetaOpen] = useState(false)
   if (loading || !order) return <div className="empty-state compact">Загружаем…</div>
   const editable = order.status === 'draft'
   const readyItems = order.items?.filter((item) => item.status === 'ready') ?? []
@@ -465,13 +475,18 @@ function OrderEditor({
     <div className="order-editor">
       <div className="order-summary">
         <div>
-          <span className="status-pill">{order.status}</span>
+          <span className="status-pill">{orderStatusLabel(order.status)}</span>
           <h2>{order.displayNumber}</h2>
           <p>{order.client?.fullName}</p>
           {order.dueAt && (
             <p>Срок готовности: {new Date(order.dueAt).toLocaleString('ru-RU')}</p>
           )}
           {order.notes && <p>Комментарий: {order.notes}</p>}
+          {editable && (
+            <button className="text-button" onClick={() => setMetaOpen(true)}>
+              Изменить клиента, срок и комментарий
+            </button>
+          )}
         </div>
         <div className="order-total">
           <span>Итого</span>
@@ -872,7 +887,131 @@ function OrderEditor({
         )}
         {acceptOrder.error && <p className="form-error">{apiError(acceptOrder.error)}</p>}
       </div>
+      {metaOpen && (
+        <OrderMetaEditor
+          order={order}
+          updateOrder={updateOrder}
+          onClose={() => setMetaOpen(false)}
+        />
+      )}
     </div>
+  )
+}
+
+function OrderMetaEditor({ order, updateOrder, onClose }) {
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [form, setForm] = useState({
+    clientId: order.clientId,
+    client: order.client,
+    dueAt: order.dueAt ? new Date(order.dueAt).toLocaleString('sv-SE').slice(0, 16) : '',
+    notes: order.notes || '',
+  })
+
+  return (
+    <>
+      <div
+        className="modal-backdrop"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) onClose()
+        }}
+      >
+        <section
+          className="modal-card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="order-meta-title"
+        >
+          <div className="modal-head">
+            <div>
+              <p className="eyebrow">Черновик {order.displayNumber}</p>
+              <h2 id="order-meta-title">Реквизиты заказа</h2>
+            </div>
+            <button className="modal-close" onClick={onClose} aria-label="Закрыть">
+              ×
+            </button>
+          </div>
+          <form
+            className="modal-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              updateOrder.mutate(
+                {
+                  clientId: form.clientId,
+                  dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : null,
+                  notes: form.notes || null,
+                },
+                { onSuccess: onClose },
+              )
+            }}
+          >
+            <div className="client-selection">
+              <div>
+                <span className="avatar">
+                  {form.client?.fullName?.slice(0, 1).toUpperCase()}
+                </span>
+                <span>
+                  <small>Клиент заказа</small>
+                  <strong>{form.client?.fullName}</strong>
+                  <em>{form.client?.phone || 'Телефон не указан'}</em>
+                </span>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setPickerOpen(true)}
+              >
+                Сменить клиента
+              </button>
+            </div>
+            <label>
+              Срок готовности
+              <input
+                type="datetime-local"
+                value={form.dueAt}
+                onChange={(event) =>
+                  setForm((value) => ({ ...value, dueAt: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              Комментарий
+              <textarea
+                rows="4"
+                maxLength="5000"
+                value={form.notes}
+                onChange={(event) =>
+                  setForm((value) => ({ ...value, notes: event.target.value }))
+                }
+              />
+            </label>
+            {updateOrder.error && (
+              <p className="form-error">{apiError(updateOrder.error)}</p>
+            )}
+            <div className="modal-actions">
+              <button type="button" className="secondary-button" onClick={onClose}>
+                Отмена
+              </button>
+              <button className="primary-button" disabled={updateOrder.isPending}>
+                Сохранить изменения
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+      {pickerOpen && (
+        <ClientPickerModal
+          onClose={() => setPickerOpen(false)}
+          onSelect={(client) =>
+            setForm((value) => ({
+              ...value,
+              clientId: client.id,
+              client,
+            }))
+          }
+        />
+      )}
+    </>
   )
 }
 
