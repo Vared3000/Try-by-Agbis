@@ -27,6 +27,7 @@
 | POST      | `/payments/{id}/refunds`       | оформить возврат              | `payments.refund`       |
 | POST      | `/orders/{id}/issues`          | частично/полностью выдать     | `orders.issue`          |
 | GET       | `/orders/{id}/receipt`         | HTML-квитанция                | `orders.view`           |
+| GET       | `/orders/{id}/labels`          | комплект бирок 55×55 мм       | `orders.view`           |
 | GET       | `/order-items/{id}/labels`     | QR/Code 128 этикетка          | `orders.view`           |
 | POST      | `/files`                       | загрузить фотографию          | `files.upload`          |
 | GET       | `/files/{id}`                  | получить защищённый файл      | `files.view`            |

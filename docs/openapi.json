@@ -169,7 +169,20 @@
     "/orders/{id}/receipt": {
       "get": {
         "responses": {
-          "200": { "description": "HTML receipt", "content": { "text/html": {} } }
+          "200": {
+            "description": "Printable A4 customer receipt template",
+            "content": { "text/html": {} }
+          }
+        }
+      }
+    },
+    "/orders/{id}/labels": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Printable 55x55mm label sheet for all order items",
+            "content": { "text/html": {} }
+          }
         }
       }
     },

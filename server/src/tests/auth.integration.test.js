@@ -649,11 +649,22 @@ integration('auth API with PostgreSQL', () => {
     expect(details.body.data.totalAmount).toBe('123400')
     expect(details.body.data.items[0].services[0].serviceName).toBe('Test service')
 
-    await request(app)
+    const receipt = await request(app)
       .get(`/api/v1/orders/${order.body.data.id}/receipt`)
       .set('Authorization', authorization)
       .expect('Content-Type', /html/)
       .expect(200)
+    expect(receipt.text).toContain('ТЕСТОВЫЙ ШАБЛОН')
+    expect(receipt.text).toContain('Integration Client')
+    expect(receipt.text).toContain('Test service')
+
+    const orderLabels = await request(app)
+      .get(`/api/v1/orders/${order.body.data.id}/labels`)
+      .set('Authorization', authorization)
+      .expect('Content-Type', /html/)
+      .expect(200)
+    expect(orderLabels.text).toContain('@page { size: 55mm 55mm; margin: 0; }')
+    expect(orderLabels.text).toContain(order.body.data.displayNumber)
 
     const label = await request(app)
       .get(`/api/v1/order-items/${item.body.data.id}/labels`)

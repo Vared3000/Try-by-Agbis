@@ -22,9 +22,21 @@ export const orderStatusLabel = (status) =>
   'Неизвестно'
 
 export async function openApiDocument(apiClient, url, mimeType) {
-  const response = await apiClient.get(url, { responseType: 'blob' })
-  const blob = new Blob([response.data], { type: mimeType })
-  const objectUrl = URL.createObjectURL(blob)
-  window.open(objectUrl, '_blank', 'noopener,noreferrer')
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+  const previewWindow = window.open('about:blank', '_blank')
+  if (previewWindow) {
+    previewWindow.opener = null
+    previewWindow.document.title = 'Подготовка печати…'
+    previewWindow.document.body.textContent = 'Подготавливаем документ…'
+  }
+  try {
+    const response = await apiClient.get(url, { responseType: 'blob' })
+    const blob = new Blob([response.data], { type: mimeType })
+    const objectUrl = URL.createObjectURL(blob)
+    if (previewWindow) previewWindow.location.replace(objectUrl)
+    else window.open(objectUrl, '_blank', 'noopener,noreferrer')
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+  } catch (error) {
+    previewWindow?.close()
+    throw error
+  }
 }

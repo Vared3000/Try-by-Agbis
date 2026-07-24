@@ -10,6 +10,11 @@ import { createAuthenticate } from '../../middlewares/authenticate.js'
 import { requireBranchAccess, requirePermission } from '../../middlewares/authorize.js'
 import { ApiError } from '../../shared/api-error.js'
 import { createAuthService } from '../auth/auth.service.js'
+import {
+  renderItemTagSvg,
+  renderOrderLabelsHtml,
+  renderReceiptHtml,
+} from './print-templates.js'
 
 const orderInput = z.object({
   branchId: z.string().uuid(),
@@ -84,14 +89,28 @@ function millisToDecimal(value) {
 const checkDigit = (value) =>
   String([...String(value)].reduce((sum, digit) => sum + Number(digit), 0) % 10)
 
-const escapeHtml = (value) =>
-  String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-
 const requestHash = (value) => createHash('sha256').update(value).digest('hex')
+
+const createLabelImages = async (scanCode) => {
+  const [qr, barcode] = await Promise.all([
+    QRCode.toBuffer(scanCode, {
+      errorCorrectionLevel: 'H',
+      margin: 4,
+      width: 700,
+    }),
+    bwipjs.toBuffer({
+      bcid: 'code128',
+      text: scanCode,
+      includetext: false,
+      scale: 4,
+      height: 12,
+    }),
+  ])
+  return {
+    qrBase64: qr.toString('base64'),
+    barcodeBase64: barcode.toString('base64'),
+  }
+}
 
 export function createOrdersRouter({ sequelize, env }) {
   const router = Router()
@@ -112,12 +131,16 @@ export function createOrdersRouter({ sequelize, env }) {
 
   const orderIncludes = [
     { model: models.Client, as: 'client' },
+    { model: models.Branch, as: 'branch' },
     {
       model: models.OrderItem,
       as: 'items',
       include: [
         { model: models.OrderItemService, as: 'services' },
         { model: models.NomenclatureItem, as: 'nomenclature' },
+        { model: models.GarmentType, as: 'garmentType' },
+        { model: models.Material, as: 'material' },
+        { model: models.Color, as: 'color' },
         {
           model: models.OrderItemDefect,
           as: 'defects',
@@ -259,22 +282,37 @@ export function createOrdersRouter({ sequelize, env }) {
     if (!req.auth.branchIds.includes(order.branchId)) {
       throw missing('ORDER_NOT_FOUND', 'Заказ не найден')
     }
-    const items = order.items
-      .map(
-        (item) =>
-          `<li>${escapeHtml(item.description || item.scanCode)} — ${escapeHtml(
-            item.totalAmount,
-          )} RUB/100</li>`,
-      )
-      .join('')
-    res.type('html').send(`<!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><title>Заказ ${escapeHtml(
-      order.displayNumber,
-    )}</title></head>
-<body><main><h1>Заказ ${escapeHtml(order.displayNumber)}</h1>
-<p>Клиент: ${escapeHtml(order.client.fullName)}</p>
-<ul>${items}</ul><strong>Итого: ${escapeHtml(order.totalAmount)} RUB/100</strong>
-</main></body></html>`)
+    const organization = await models.Organization.findByPk(req.auth.organizationId)
+    res.set({
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    })
+    res.type('html').send(renderReceiptHtml({ order, organization }))
+  })
+
+  router.get('/:id/labels', requirePermission('orders.view'), async (req, res) => {
+    const order = await findOrder(req.params.id, req.auth.organizationId, {
+      include: orderIncludes,
+    })
+    if (!req.auth.branchIds.includes(order.branchId)) {
+      throw missing('ORDER_NOT_FOUND', 'Заказ не найден')
+    }
+    const sortedItems = [...order.items].sort(
+      (left, right) =>
+        new Date(left.createdAt) - new Date(right.createdAt) ||
+        left.id.localeCompare(right.id),
+    )
+    const labels = await Promise.all(
+      sortedItems.map(async (item) => ({
+        item,
+        ...(await createLabelImages(item.scanCode)),
+      })),
+    )
+    res.set({
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    })
+    res.type('html').send(renderOrderLabelsHtml({ order, labels }))
   })
 
   router.get(
@@ -283,7 +321,11 @@ export function createOrdersRouter({ sequelize, env }) {
     async (req, res) => {
       const item = await models.OrderItem.findOne({
         where: { id: req.params.itemId, organizationId: req.auth.organizationId },
-        include: [{ model: models.Order, as: 'order', required: true }],
+        include: [
+          { model: models.Order, as: 'order', required: true },
+          { model: models.NomenclatureItem, as: 'nomenclature' },
+          { model: models.GarmentType, as: 'garmentType' },
+        ],
       })
       if (!item || !req.auth.branchIds.includes(item.order.branchId)) {
         throw missing('ORDER_ITEM_NOT_FOUND', 'Изделие не найдено')
@@ -291,37 +333,30 @@ export function createOrdersRouter({ sequelize, env }) {
       const symbology = req.query.symbology
       const output = req.query.output
       if (req.query.layout === 'tag') {
-        const qr = await QRCode.toBuffer(item.scanCode, {
-          errorCorrectionLevel: 'H',
-          margin: 4,
-          width: 700,
+        const siblings = await models.OrderItem.findAll({
+          where: {
+            orderId: item.orderId,
+            organizationId: req.auth.organizationId,
+          },
+          attributes: ['id', 'createdAt'],
+          order: [
+            ['createdAt', 'ASC'],
+            ['id', 'ASC'],
+          ],
         })
-        const barcode = await bwipjs.toBuffer({
-          bcid: 'code128',
-          text: item.scanCode,
-          includetext: false,
-          scale: 4,
-          height: 12,
-        })
+        const images = await createLabelImages(item.scanCode)
         res.set({
           'Cache-Control': 'private, no-store',
           'X-Content-Type-Options': 'nosniff',
         })
-        res.type('image/svg+xml').send(`<svg xmlns="http://www.w3.org/2000/svg"
-  width="55mm" height="55mm" viewBox="0 0 55 55">
-  <rect width="55" height="55" fill="#fff"/>
-  <text x="27.5" y="4" text-anchor="middle"
-    font-family="Arial, sans-serif" font-size="3.2" font-weight="700">${escapeHtml(
-      item.order.displayNumber,
-    )}</text>
-  <image x="9.5" y="5" width="36" height="36"
-    href="data:image/png;base64,${qr.toString('base64')}"/>
-  <image x="3.5" y="42" width="48" height="8"
-    preserveAspectRatio="none"
-    href="data:image/png;base64,${barcode.toString('base64')}"/>
-  <text x="27.5" y="53" text-anchor="middle"
-    font-family="Arial, sans-serif" font-size="2.2">${escapeHtml(item.scanCode)}</text>
-</svg>`)
+        res.type('image/svg+xml').send(
+          renderItemTagSvg({
+            item,
+            order: item.order,
+            ...images,
+            index: siblings.findIndex(({ id }) => id === item.id) + 1,
+          }),
+        )
         return
       }
       if (symbology || output) {

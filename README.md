@@ -20,6 +20,7 @@ CleanFlow ERP — самостоятельная веб-система упра�
 - [Риски, допущения и критерии приёмки](docs/project-controls.md)
 - [Реестр технического долга](docs/technical-debt.md)
 - [Эксплуатация](docs/operations.md)
+- [Печатные шаблоны](docs/print-templates.md)
 - [Security review](docs/security-review.md)
 - [Отчёт по итерации 3](docs/iteration-3-report.md)
 - [Отчёт по итерации 4](docs/iteration-4-report.md)
@@ -34,6 +35,7 @@ CleanFlow ERP — самостоятельная веб-система упра�
 - [Отчёт по итерации 13](docs/iteration-13-report.md)
 - [Отчёт по итерации 14](docs/iteration-14-report.md)
 - [Отчёт по итерации 15](docs/iteration-15-report.md)
+- [Отчёт по итерации 16](docs/iteration-16-report.md)
 
 ## Работа с базой данных
 

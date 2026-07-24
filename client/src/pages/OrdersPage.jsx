@@ -790,7 +790,7 @@ function OrderEditor({
                 )
               }
             >
-              Открыть бирку 55×55
+              Печать бирки 55×55
             </button>
             {editable && (
               <button
@@ -848,7 +848,7 @@ function OrderEditor({
         </section>
       )}
       <div className="order-actions">
-        {editable ? (
+        {editable && (
           <button
             className="primary-button"
             disabled={
@@ -862,16 +862,24 @@ function OrderEditor({
           >
             Принять заказ
           </button>
-        ) : (
-          <button
-            className="primary-button"
-            onClick={() =>
-              onOpenDocument(`/orders/${order.id}/receipt`, 'text/html;charset=utf-8')
-            }
-          >
-            Открыть квитанцию
-          </button>
         )}
+        <button
+          className={editable ? 'secondary-button' : 'primary-button'}
+          onClick={() =>
+            onOpenDocument(`/orders/${order.id}/receipt`, 'text/html;charset=utf-8')
+          }
+        >
+          Печать квитанции
+        </button>
+        <button
+          className="secondary-button"
+          disabled={!order.items?.length}
+          onClick={() =>
+            onOpenDocument(`/orders/${order.id}/labels`, 'text/html;charset=utf-8')
+          }
+        >
+          Печать всех бирок ({order.items?.length ?? 0})
+        </button>
         {['draft', 'accepted'].includes(order.status) && (
           <button
             className="secondary-button danger-button"
