@@ -9,6 +9,7 @@ import {
   MeasurementEditor,
   ServiceAdder,
 } from '../features/orders/OrderItemControls.jsx'
+import { ItemStatusActions } from '../features/orders/ItemStatusActions.jsx'
 import {
   canIssueWholeOrder,
   remainingOrderItems,
@@ -246,6 +247,15 @@ export function OrdersPage() {
       queryClient.invalidateQueries({ queryKey: ['reports'] })
     },
   })
+  const updateItemWorkStatus = useMutation({
+    mutationFn: ({ itemId, status }) =>
+      apiClient.patch(`/order-items/${itemId}/work-status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['production-items'] })
+    },
+  })
 
   const openDocument = async (url, type) => {
     setActionError('')
@@ -329,6 +339,7 @@ export function OrdersPage() {
             acceptOrder={acceptOrder}
             cancelOrder={cancelOrder}
             issueOrder={issueOrder}
+            updateItemWorkStatus={updateItemWorkStatus}
             onOpenDocument={openDocument}
             actionError={actionError}
             onChanged={() =>
@@ -389,6 +400,7 @@ function OrderEditor({
   acceptOrder,
   cancelOrder,
   issueOrder,
+  updateItemWorkStatus,
   onOpenDocument,
   actionError,
   onChanged,
@@ -719,37 +731,37 @@ function OrderEditor({
                 </div>
                 <div className="order-item-head-actions">
                   <strong>{money(item.totalAmount)}</strong>
-                  {issueActionsAvailable && (
-                    <button
-                      type="button"
-                      className="secondary-button item-issue-button"
-                      disabled={
-                        item.status !== 'ready' ||
-                        issueOrder.isPending ||
-                        (debt > 0 && !issueReason.trim())
-                      }
-                      title={
-                        item.status === 'issued'
-                          ? 'Изделие уже выдано'
-                          : item.status !== 'ready'
-                            ? 'Изделие ещё не готово к выдаче'
-                            : debt > 0 && !issueReason.trim()
-                              ? 'Сначала укажите причину выдачи с долгом'
-                              : undefined
-                      }
-                      onClick={() =>
-                        issueOrder.mutate({
-                          itemIds: [item.id],
-                          reason: issueReason.trim(),
-                        })
-                      }
-                    >
-                      {item.status === 'issued'
-                        ? 'Изделие выдано'
-                        : issuingItemIds.includes(item.id)
-                          ? 'Выдаём…'
-                          : 'Выдать изделие'}
-                    </button>
+                  {!['draft', 'cancelled'].includes(order.status) && (
+                    <>
+                      <ItemStatusActions
+                        debtReasonMissing={debt > 0 && !issueReason.trim()}
+                        disabled={issueOrder.isPending || updateItemWorkStatus.isPending}
+                        item={item}
+                        pendingAction={
+                          updateItemWorkStatus.isPending &&
+                          updateItemWorkStatus.variables?.itemId === item.id
+                            ? updateItemWorkStatus.variables.status
+                            : issuingItemIds.includes(item.id)
+                              ? 'issued'
+                              : ''
+                        }
+                        onSetStatus={(status) =>
+                          updateItemWorkStatus.mutate({ itemId: item.id, status })
+                        }
+                        onIssue={() =>
+                          issueOrder.mutate({
+                            itemIds: [item.id],
+                            reason: issueReason.trim(),
+                          })
+                        }
+                      />
+                      {updateItemWorkStatus.error &&
+                        updateItemWorkStatus.variables?.itemId === item.id && (
+                          <small className="item-status-error">
+                            {apiError(updateItemWorkStatus.error)}
+                          </small>
+                        )}
+                    </>
                   )}
                 </div>
               </div>
@@ -920,7 +932,8 @@ function OrderEditor({
             updateOrder.isPending ||
             removeItem.isPending ||
             acceptOrder.isPending ||
-            cancelOrder.isPending
+            cancelOrder.isPending ||
+            updateItemWorkStatus.isPending
           }
           onSave={onChanged}
           primary={!editable}

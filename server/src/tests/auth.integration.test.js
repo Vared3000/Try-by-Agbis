@@ -1057,11 +1057,19 @@ integration('auth API with PostgreSQL', () => {
     expect(measurement.body.data.item.totalAmount).toBe('354000')
     expect(measurement.body.data.order.totalAmount).toBe('354000')
 
+    const quickInProgress = await request(app)
+      .patch(`/api/v1/order-items/${item.body.data.id}/work-status`)
+      .set('Authorization', authorization)
+      .send({ status: 'in_progress' })
+      .expect(200)
+    expect(quickInProgress.body.data.item.status).toBe('in_progress')
+    expect(quickInProgress.body.data.order.status).toBe('in_progress')
+
     const details = await request(app)
       .get(`/api/v1/orders/${order.body.data.id}`)
       .set('Authorization', authorization)
       .expect(200)
-    expect(details.body.data.status).toBe('accepted')
+    expect(details.body.data.status).toBe('in_progress')
     expect(details.body.data.totalAmount).toBe('354000')
     expect(details.body.data.items[0].nomenclature.name).toBe('Integration wool carpet')
 
@@ -1077,6 +1085,19 @@ integration('auth API with PostgreSQL', () => {
         .send({ stageId, action: 'complete', workplaceId: ids.workplace })
         .expect(200)
     }
+
+    await request(app)
+      .patch(`/api/v1/order-items/${item.body.data.id}/work-status`)
+      .set('Authorization', authorization)
+      .send({ status: 'in_progress' })
+      .expect(200)
+    const quickReady = await request(app)
+      .patch(`/api/v1/order-items/${item.body.data.id}/work-status`)
+      .set('Authorization', authorization)
+      .send({ status: 'ready' })
+      .expect(200)
+    expect(quickReady.body.data.item.status).toBe('ready')
+    expect(quickReady.body.data.order.status).toBe('ready')
 
     const issueWithDebtPermission = await sequelize.models.Permission.findOne({
       where: { code: 'orders.issue_with_debt' },

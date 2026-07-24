@@ -24,6 +24,7 @@
 | POST      | `/orders/{id}/items`             | добавить изделие              | `orders.update`               |
 | POST      | `/order-items/{id}/services`     | назначить услуги              | `orders.update`               |
 | POST      | `/order-items/{id}/transition`   | производственный переход      | `production.transition`       |
+| PATCH     | `/order-items/{id}/work-status`  | быстрый статус позиции        | `production.transition`       |
 | POST      | `/orders/{id}/payments`          | принять оплату                | `payments.create`             |
 | POST      | `/payments/{id}/refunds`         | оформить возврат              | `payments.refund`             |
 | GET       | `/cash-shifts/current`           | открытая смена филиала        | `payments.create`             |

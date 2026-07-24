@@ -19,6 +19,10 @@ const assignInput = z.object({
   workplaceId: z.string().uuid().nullable().optional(),
 })
 
+const workStatusInput = z.object({
+  status: z.enum(['in_progress', 'ready']),
+})
+
 const queueQuery = z.object({
   search: z.string().trim().max(100).optional(),
   status: z.string().trim().max(32).optional(),
@@ -168,6 +172,143 @@ export function createProductionRouter({ sequelize, env }) {
         include: productionItemIncludes(req.auth),
       })
       res.json(success(item, req.correlationId))
+    },
+  )
+
+  router.patch(
+    '/order-items/:itemId/work-status',
+    requirePermission('production.transition'),
+    async (req, res) => {
+      const input = workStatusInput.parse(req.body)
+      const result = await sequelize.transaction(async (transaction) => {
+        const item = await loadItem({ id: req.params.itemId }, req.auth, {
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+        if (
+          ['draft', 'cancelled', 'issued'].includes(item.order.status) ||
+          ['cancelled', 'issued', 'rejected'].includes(item.status)
+        ) {
+          throw workflowError(
+            'ITEM_STATUS_LOCKED',
+            'Статус отменённого или выданного изделия изменить нельзя',
+          )
+        }
+
+        const previousItemStatus = item.status
+        if (previousItemStatus !== input.status) {
+          await item.update(
+            {
+              status: input.status,
+              version: item.version + 1,
+            },
+            { transaction },
+          )
+        }
+
+        const siblings = await models.OrderItem.findAll({
+          where: {
+            orderId: item.orderId,
+            organizationId: req.auth.organizationId,
+          },
+          transaction,
+        })
+        const hasIssuedItems = siblings.some((sibling) => sibling.status === 'issued')
+        const remainingItems = siblings.filter((sibling) => sibling.status !== 'issued')
+        let orderStatus
+        if (hasIssuedItems) {
+          orderStatus = 'partially_issued'
+        } else if (remainingItems.every((sibling) => sibling.status === 'ready')) {
+          orderStatus = 'ready'
+        } else if (remainingItems.some((sibling) => sibling.status === 'ready')) {
+          orderStatus = 'partially_ready'
+        } else {
+          orderStatus = 'in_progress'
+        }
+
+        const previousOrderStatus = item.order.status
+        if (previousOrderStatus !== orderStatus) {
+          await item.order.update(
+            {
+              status: orderStatus,
+              version: item.order.version + 1,
+            },
+            { transaction },
+          )
+          await models.OrderStatusHistory.create(
+            {
+              organizationId: req.auth.organizationId,
+              orderId: item.order.id,
+              fromStatus: previousOrderStatus,
+              toStatus: orderStatus,
+              changedByUserId: req.auth.userId,
+              reason: 'Быстрое изменение статуса позиции из заказа',
+              changedAt: new Date(),
+            },
+            { transaction },
+          )
+        }
+
+        if (previousItemStatus !== input.status) {
+          await models.AuditLog.create(
+            {
+              organizationId: req.auth.organizationId,
+              actorUserId: req.auth.userId,
+              action: 'production.work_status_update',
+              entityType: 'OrderItem',
+              entityId: item.id,
+              correlationId: req.correlationId,
+              before: { status: previousItemStatus },
+              after: { status: item.status, orderStatus },
+              occurredAt: new Date(),
+            },
+            { transaction },
+          )
+          await models.OutboxEvent.create(
+            {
+              organizationId: req.auth.organizationId,
+              aggregateType: 'OrderItem',
+              aggregateId: item.id,
+              type: 'production.work_status_updated',
+              payload: {
+                orderItemId: item.id,
+                fromStatus: previousItemStatus,
+                toStatus: item.status,
+                orderStatus,
+              },
+              occurredAt: new Date(),
+            },
+            { transaction },
+          )
+        }
+
+        if (previousOrderStatus !== 'ready' && orderStatus === 'ready') {
+          await models.Notification.create(
+            {
+              organizationId: req.auth.organizationId,
+              clientId: item.order.clientId,
+              type: 'order_ready',
+              channel: 'internal',
+              status: 'pending',
+              payload: {
+                orderId: item.order.id,
+                displayNumber: item.order.displayNumber,
+              },
+            },
+            { transaction },
+          )
+        }
+
+        return {
+          item,
+          order: {
+            id: item.order.id,
+            status: orderStatus,
+            version: item.order.version,
+          },
+        }
+      })
+      res.json(success(result, req.correlationId))
     },
   )
 

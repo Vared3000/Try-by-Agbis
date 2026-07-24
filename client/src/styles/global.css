@@ -1590,8 +1590,49 @@ textarea:focus {
   justify-items: end;
   gap: 0.65rem;
 }
-.item-issue-button {
-  min-width: 175px;
+.item-status-control {
+  display: grid;
+  justify-items: end;
+  gap: 0.3rem;
+}
+.item-status-control > span {
+  color: #74867c;
+  font-size: 0.7rem;
+}
+.item-status-control > div {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d6e2dc;
+  border-radius: 10px;
+}
+.item-status-control button {
+  min-height: 36px;
+  border: 0;
+  border-left: 1px solid #d6e2dc;
+  background: white;
+  padding: 0.45rem 0.7rem;
+  color: #456356;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.item-status-control button:first-child {
+  border-left: 0;
+}
+.item-status-control button:hover:not(:disabled),
+.item-status-control button.active {
+  background: #e9f5ee;
+  color: #17533d;
+}
+.item-status-control button.active.issued {
+  background: #dff1e6;
+}
+.item-status-control button:disabled:not(.active) {
+  color: #9aa8a1;
+}
+.item-status-error {
+  max-width: 360px;
+  color: #b13c32 !important;
+  text-align: right;
 }
 .issue-panel {
   display: grid;

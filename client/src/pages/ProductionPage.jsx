@@ -117,6 +117,7 @@ export function ProductionPage() {
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
               <option value="">Все рабочие статусы</option>
               <option value="accepted">Ожидают запуска</option>
+              <option value="in_progress">В работе</option>
               <option value="cleaning">Чистка</option>
               <option value="quality_control">Контроль качества</option>
               <option value="packing">Упаковка</option>
@@ -283,6 +284,7 @@ function statusLabel(status) {
   return (
     {
       accepted: 'Ожидает запуска',
+      in_progress: 'В работе',
       cleaning: 'Чистка',
       quality_control: 'Контроль качества',
       packing: 'Упаковка',

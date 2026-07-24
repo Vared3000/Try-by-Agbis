@@ -291,6 +291,14 @@
     "/order-items/{itemId}/transition": {
       "post": { "responses": { "200": { "description": "Stage transitioned" } } }
     },
+    "/order-items/{itemId}/work-status": {
+      "patch": {
+        "responses": {
+          "200": { "description": "Item work status updated" },
+          "409": { "description": "Item status is locked" }
+        }
+      }
+    },
     "/order-items/{itemId}/assign": {
       "post": { "responses": { "200": { "description": "Worker assigned" } } }
     },
