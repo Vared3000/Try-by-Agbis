@@ -10,6 +10,7 @@ import { createAuthenticate } from '../../middlewares/authenticate.js'
 import { requireBranchAccess, requirePermission } from '../../middlewares/authorize.js'
 import { ApiError } from '../../shared/api-error.js'
 import { createAuthService } from '../auth/auth.service.js'
+import { suggestDueAt } from './due-date.js'
 import {
   renderItemTagSvg,
   renderOrderLabelsHtml,
@@ -20,13 +21,25 @@ import { orderDisplayNumber } from './order-number.js'
 const orderInput = z.object({
   branchId: z.string().uuid(),
   acceptanceLocationId: z.string().uuid(),
+  issueLocationId: z.string().uuid().nullable().optional(),
   clientId: z.string().uuid(),
   dueAt: z.iso.datetime().nullable().optional(),
+  urgency: z.enum(['normal', 'urgent', 'express']).optional(),
+  notificationPhone: z.string().trim().max(32).nullable().optional(),
+  isRework: z.boolean().optional(),
   notes: z.string().trim().max(5000).nullable().optional(),
 })
 
 const orderUpdateInput = orderInput
-  .pick({ clientId: true, dueAt: true, notes: true })
+  .pick({
+    clientId: true,
+    issueLocationId: true,
+    dueAt: true,
+    urgency: true,
+    notificationPhone: true,
+    isRework: true,
+    notes: true,
+  })
   .partial()
   .refine((value) => Object.keys(value).length > 0, {
     message: 'Укажите изменяемые поля заказа',
@@ -140,6 +153,13 @@ export function createOrdersRouter({ sequelize, env }) {
   const orderIncludes = [
     { model: models.Client, as: 'client' },
     { model: models.Branch, as: 'branch' },
+    { model: models.Location, as: 'acceptanceLocation' },
+    { model: models.Location, as: 'issueLocation' },
+    {
+      model: models.User,
+      as: 'createdBy',
+      attributes: ['id', 'displayName'],
+    },
     {
       model: models.OrderItem,
       as: 'items',
@@ -174,6 +194,26 @@ export function createOrdersRouter({ sequelize, env }) {
       ],
     },
   ]
+  const automaticDueAt = async ({ orderId, organizationId, urgency, transaction }) => {
+    const items = await models.OrderItem.findAll({
+      where: { orderId, organizationId },
+      attributes: ['id'],
+      include: [
+        {
+          model: models.NomenclatureItem,
+          as: 'nomenclature',
+          attributes: ['leadTimeHours'],
+          required: false,
+        },
+      ],
+      transaction,
+    })
+    const leadTimeHours = Math.max(
+      48,
+      ...items.map((item) => item.nomenclature?.leadTimeHours ?? 48),
+    )
+    return suggestDueAt({ leadTimeHours, urgency })
+  }
 
   router.get('/', requirePermission('orders.view'), async (req, res) => {
     const page = Math.max(1, Number(req.query.page) || 1)
@@ -244,11 +284,21 @@ export function createOrdersRouter({ sequelize, env }) {
           },
           transaction,
         })
-        if (!location || !client || !branch) {
+        const issueLocationId = input.issueLocationId ?? input.acceptanceLocationId
+        const issueLocation = await models.Location.findOne({
+          where: {
+            id: issueLocationId,
+            organizationId: req.auth.organizationId,
+            branchId: { [Op.in]: req.auth.branchIds },
+            archivedAt: null,
+          },
+          transaction,
+        })
+        if (!location || !issueLocation || !client || !branch) {
           throw new ApiError({
             status: 422,
             code: 'ORDER_REFERENCE_INVALID',
-            message: 'Клиент или точка приёма недоступны',
+            message: 'Клиент, точка приёма или точка выдачи недоступны',
           })
         }
 
@@ -280,13 +330,25 @@ export function createOrdersRouter({ sequelize, env }) {
           branchNumber: branch.number,
           sequence,
         })
+        const dueDateMode = input.dueAt ? 'manual' : 'automatic'
         return models.Order.create(
           {
             organizationId: req.auth.organizationId,
             ...input,
+            issueLocationId,
+            urgency: input.urgency ?? 'normal',
+            notificationPhone: input.notificationPhone || client.phone || null,
+            isRework: input.isRework ?? false,
             sequence,
             displayNumber,
             acceptedOn: businessDate,
+            dueAt:
+              input.dueAt ??
+              suggestDueAt({
+                leadTimeHours: 48,
+                urgency: input.urgency ?? 'normal',
+              }),
+            dueDateMode,
             status: 'draft',
             subtotalAmount: 0,
             discountAmount: 0,
@@ -489,12 +551,54 @@ export function createOrdersRouter({ sequelize, env }) {
           })
         }
       }
+      if (input.issueLocationId) {
+        const issueLocation = await models.Location.findOne({
+          where: {
+            id: input.issueLocationId,
+            organizationId: req.auth.organizationId,
+            branchId: { [Op.in]: req.auth.branchIds },
+            archivedAt: null,
+          },
+          transaction,
+        })
+        if (!issueLocation) {
+          throw new ApiError({
+            status: 422,
+            code: 'ORDER_ISSUE_LOCATION_INVALID',
+            message: 'Точка выдачи недоступна',
+          })
+        }
+      }
       const before = {
         clientId: order.clientId,
+        issueLocationId: order.issueLocationId,
         dueAt: order.dueAt,
+        urgency: order.urgency,
+        notificationPhone: order.notificationPhone,
+        isRework: order.isRework,
+        dueDateMode: order.dueDateMode,
         notes: order.notes,
       }
-      await order.update({ ...input, version: order.version + 1 }, { transaction })
+      const changes = { ...input }
+      if (Object.hasOwn(input, 'dueAt')) {
+        changes.dueDateMode = input.dueAt ? 'manual' : 'automatic'
+        if (!input.dueAt) {
+          changes.dueAt = await automaticDueAt({
+            orderId: order.id,
+            organizationId: req.auth.organizationId,
+            urgency: input.urgency ?? order.urgency,
+            transaction,
+          })
+        }
+      } else if (input.urgency && order.dueDateMode === 'automatic') {
+        changes.dueAt = await automaticDueAt({
+          orderId: order.id,
+          organizationId: req.auth.organizationId,
+          urgency: input.urgency,
+          transaction,
+        })
+      }
+      await order.update({ ...changes, version: order.version + 1 }, { transaction })
       await models.AuditLog.create(
         {
           organizationId: req.auth.organizationId,
@@ -506,7 +610,12 @@ export function createOrdersRouter({ sequelize, env }) {
           before,
           after: {
             clientId: order.clientId,
+            issueLocationId: order.issueLocationId,
             dueAt: order.dueAt,
+            urgency: order.urgency,
+            notificationPhone: order.notificationPhone,
+            isRework: order.isRework,
+            dueDateMode: order.dueDateMode,
             notes: order.notes,
           },
           occurredAt: new Date(),
@@ -737,17 +846,24 @@ export function createOrdersRouter({ sequelize, env }) {
             )
           : null,
       ])
+      const orderChanges = { version: order.version + 1 }
       if (itemTotal > 0n) {
         const nextSubtotal = BigInt(order.subtotalAmount) + itemTotal
-        await order.update(
-          {
-            subtotalAmount: nextSubtotal.toString(),
-            totalAmount: nextSubtotal.toString(),
-            version: order.version + 1,
-          },
-          { transaction },
-        )
+        orderChanges.subtotalAmount = nextSubtotal.toString()
+        orderChanges.totalAmount = totalAfterDiscount(
+          nextSubtotal,
+          BigInt(order.discountAmount),
+        ).toString()
       }
+      if (order.dueDateMode === 'automatic') {
+        orderChanges.dueAt = await automaticDueAt({
+          orderId: order.id,
+          organizationId: req.auth.organizationId,
+          urgency: order.urgency,
+          transaction,
+        })
+      }
+      await order.update(orderChanges, { transaction })
       return item
     })
     res.status(201).json(success(item, req.correlationId))
@@ -1186,14 +1302,20 @@ export function createOrdersRouter({ sequelize, env }) {
           })
         }
         await item.destroy({ transaction })
-        await item.order.update(
-          {
-            subtotalAmount: nextSubtotal.toString(),
-            totalAmount: nextTotal.toString(),
-            version: item.order.version + 1,
-          },
-          { transaction },
-        )
+        const orderChanges = {
+          subtotalAmount: nextSubtotal.toString(),
+          totalAmount: nextTotal.toString(),
+          version: item.order.version + 1,
+        }
+        if (item.order.dueDateMode === 'automatic') {
+          orderChanges.dueAt = await automaticDueAt({
+            orderId: item.order.id,
+            organizationId: req.auth.organizationId,
+            urgency: item.order.urgency,
+            transaction,
+          })
+        }
+        await item.order.update(orderChanges, { transaction })
         return {
           deleted: true,
           subtotalAmount: nextSubtotal.toString(),

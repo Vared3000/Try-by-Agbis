@@ -9,6 +9,7 @@ import { NomenclaturePage } from './NomenclaturePage.jsx'
 import { OrdersPage } from './OrdersPage.jsx'
 import { PriceListsPage } from './PriceListsPage.jsx'
 import { ProductionPage } from './ProductionPage.jsx'
+import { TransfersPage } from './TransfersPage.jsx'
 import { money, orderStatusLabel } from './workspace-utils.js'
 
 const navigation = [
@@ -19,6 +20,7 @@ const navigation = [
   ['catalog', 'Параметры заказа', '◇'],
   ['pricing', 'Прайс-листы', '₽'],
   ['production', 'Производство', '⌁'],
+  ['transfers', 'Перемещения', '⇄'],
   ['cash', 'Касса', '₽'],
   ['reports', 'Отчёты', '◫'],
   ['notifications', 'Уведомления', '●'],
@@ -145,6 +147,7 @@ export function WorkspacePage() {
         )}
 
         {section === 'production' && <ProductionPage />}
+        {section === 'transfers' && <TransfersPage />}
 
         {section === 'clients' && <ClientsPage />}
         {section === 'orders' && <OrdersPage />}

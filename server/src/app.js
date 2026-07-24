@@ -20,6 +20,7 @@ import { createNomenclatureRouter } from './modules/nomenclature/nomenclature.ro
 import { createDefectGroupsRouter } from './modules/defect-groups/defect-groups.routes.js'
 import { createReportsRouter } from './modules/reports/reports.routes.js'
 import { createSystemRouter } from './modules/system/system.routes.js'
+import { createTransfersRouter } from './modules/transfers/transfers.routes.js'
 
 export function createApp({ environment, logger, readyCheck, sequelize, env }) {
   const app = express()
@@ -69,6 +70,7 @@ export function createApp({ environment, logger, readyCheck, sequelize, env }) {
     app.use('/api/v1', createProductionRouter({ sequelize, env }))
     app.use('/api/v1', createIssuesRouter({ sequelize, env }))
     app.use('/api/v1', createReportsRouter({ sequelize, env }))
+    app.use('/api/v1/transfers', createTransfersRouter({ sequelize, env }))
   }
 
   app.use(notFound)

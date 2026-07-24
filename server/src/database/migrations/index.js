@@ -8,6 +8,9 @@ import * as defectGroups from './202607240006-defect-groups.js'
 import * as priceListNomenclature from './202607240007-price-list-nomenclature.js'
 import * as priceListServiceNullability from './202607240008-price-list-service-nullability.js'
 import * as orderNumberFormat from './202607240009-order-number-format.js'
+import * as orderOperationalFields from './202607250001-order-operational-fields.js'
+import * as automaticDueDate from './202607250002-automatic-due-date.js'
+import * as transferDocuments from './202607250003-transfer-documents.js'
 
 export const migrations = [
   initialSchema,
@@ -20,4 +23,7 @@ export const migrations = [
   priceListNomenclature,
   priceListServiceNullability,
   orderNumberFormat,
+  orderOperationalFields,
+  automaticDueDate,
+  transferDocuments,
 ]

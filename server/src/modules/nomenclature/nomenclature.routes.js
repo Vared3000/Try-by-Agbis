@@ -22,6 +22,12 @@ const createInput = z.object({
   name: z.string().trim().min(2).max(255),
   unit: z.enum(units),
   unitPrice: moneyValue,
+  leadTimeHours: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60)
+    .optional(),
   defectGroupId: z.string().uuid().nullable().optional(),
 })
 
@@ -113,6 +119,7 @@ export function createNomenclatureRouter({ sequelize, env }) {
     const row = await NomenclatureItem.create({
       organizationId: req.auth.organizationId,
       ...input,
+      leadTimeHours: input.leadTimeHours ?? 48,
       defectGroupId,
       calculationType: calculationTypes[input.unit],
       currency: 'RUB',

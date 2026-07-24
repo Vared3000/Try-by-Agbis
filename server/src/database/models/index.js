@@ -54,18 +54,8 @@ function associate(models) {
   belongsTo('PriceListItem', 'PriceList', 'priceListId', 'priceList')
   belongsTo('PriceListItem', 'Service', 'serviceId', 'service')
   belongsTo('PriceListItem', 'GarmentType', 'garmentTypeId', 'garmentType')
-  belongsTo(
-    'PriceListItem',
-    'NomenclatureItem',
-    'nomenclatureItemId',
-    'nomenclature',
-  )
-  hasMany(
-    'NomenclatureItem',
-    'PriceListItem',
-    'nomenclatureItemId',
-    'priceListItems',
-  )
+  belongsTo('PriceListItem', 'NomenclatureItem', 'nomenclatureItemId', 'nomenclature')
+  hasMany('NomenclatureItem', 'PriceListItem', 'nomenclatureItemId', 'priceListItems')
   belongsTo('NomenclatureItem', 'DefectGroup', 'defectGroupId', 'defectGroup')
   hasMany('DefectGroup', 'NomenclatureItem', 'defectGroupId', 'nomenclatureItems')
   models.DefectGroup.belongsToMany(models.Defect, {
@@ -88,6 +78,9 @@ function associate(models) {
   hasMany('Order', 'OrderItem', 'orderId', 'items')
   belongsTo('Order', 'Client', 'clientId', 'client')
   belongsTo('Order', 'Branch', 'branchId', 'branch')
+  belongsTo('Order', 'Location', 'acceptanceLocationId', 'acceptanceLocation')
+  belongsTo('Order', 'Location', 'issueLocationId', 'issueLocation')
+  belongsTo('Order', 'User', 'createdByUserId', 'createdBy')
   belongsTo('OrderItem', 'Order', 'orderId', 'order')
   belongsTo('OrderItem', 'GarmentType', 'garmentTypeId', 'garmentType')
   belongsTo('OrderItem', 'NomenclatureItem', 'nomenclatureItemId', 'nomenclature')
@@ -104,6 +97,21 @@ function associate(models) {
   belongsTo('OrderItemContamination', 'Contamination', 'contaminationId', 'contamination')
   hasMany('OrderItem', 'ItemStageHistory', 'orderItemId', 'stageHistory')
   hasMany('OrderItem', 'ItemMovement', 'orderItemId', 'movements')
+  belongsTo('ItemMovement', 'Location', 'fromLocationId', 'fromLocation')
+  belongsTo('ItemMovement', 'Location', 'toLocationId', 'toLocation')
+  belongsTo('ItemMovement', 'User', 'movedByUserId', 'movedBy')
+  belongsTo('TransferDocument', 'Location', 'fromLocationId', 'fromLocation')
+  belongsTo('TransferDocument', 'Location', 'toLocationId', 'toLocation')
+  belongsTo('TransferDocument', 'User', 'createdByUserId', 'createdBy')
+  hasMany('TransferDocument', 'TransferDocumentItem', 'transferDocumentId', 'items')
+  belongsTo(
+    'TransferDocumentItem',
+    'TransferDocument',
+    'transferDocumentId',
+    'transferDocument',
+  )
+  belongsTo('TransferDocumentItem', 'OrderItem', 'orderItemId', 'orderItem')
+  hasMany('OrderItem', 'TransferDocumentItem', 'orderItemId', 'transferItems')
   hasMany('OrderItem', 'File', 'orderItemId', 'files')
   belongsTo('File', 'OrderItem', 'orderItemId', 'orderItem')
   hasMany('Order', 'OrderStatusHistory', 'orderId', 'statusHistory')

@@ -27,6 +27,7 @@ const emptyForm = {
   price: '',
   length: '',
   width: '',
+  leadTimeHours: '48',
   defectGroupId: '',
 }
 
@@ -61,6 +62,7 @@ export function NomenclaturePage() {
             name: form.name,
             unit: form.unit,
             unitPrice: String(Math.round(numberValue(form.price) * 100)),
+            leadTimeHours: Number(form.leadTimeHours),
             defectGroupId: form.defectGroupId || null,
           },
         )
@@ -104,6 +106,7 @@ export function NomenclaturePage() {
       name: row.name,
       unit: row.unit,
       price: String(Number(row.unitPrice) / 100),
+      leadTimeHours: String(row.leadTimeHours ?? 48),
       defectGroupId: row.defectGroupId ?? '',
     })
     setModalOpen(true)
@@ -136,6 +139,7 @@ export function NomenclaturePage() {
             <span>Единица</span>
             <span>Цена за единицу</span>
             <span>Тип расчёта</span>
+            <span>Норматив</span>
             <span />
           </div>
           {(list.data ?? []).map((row) => (
@@ -156,6 +160,7 @@ export function NomenclaturePage() {
                   weight: 'По весу',
                 }[row.calculationType] || row.calculationType}
               </span>
+              <span>{row.leadTimeHours ?? 48} ч</span>
               <span className="table-actions">
                 <button className="text-button" onClick={() => openEdit(row)}>
                   Изменить
@@ -268,6 +273,24 @@ export function NomenclaturePage() {
                 <small>
                   В заказе приёмщик увидит только дефекты из выбранной группы.
                 </small>
+              </label>
+              <label>
+                Норматив готовности, часов
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  max={24 * 60}
+                  step="1"
+                  value={form.leadTimeHours}
+                  onChange={(event) =>
+                    setForm((value) => ({
+                      ...value,
+                      leadTimeHours: event.target.value,
+                    }))
+                  }
+                />
+                <small>Используется для автоматического расчёта срока заказа.</small>
               </label>
 
               {form.unit === 'square_meter' && (

@@ -6,7 +6,7 @@ import { schema } from '../database/schema.js'
 
 describe('database schema', () => {
   it('defines every MVP entity with UUID identifiers and timestamps', () => {
-    expect(Object.keys(schema)).toHaveLength(50)
+    expect(Object.keys(schema)).toHaveLength(52)
 
     for (const definition of Object.values(schema)) {
       expect(definition.options.tableName).toBeTruthy()
@@ -39,6 +39,8 @@ describe('database schema', () => {
     expect(indexFields('Payment')).toContain('organizationId,idempotencyKey')
     expect(indexFields('Refund')).toContain('organizationId,idempotencyKey')
     expect(indexFields('OrderIssue')).toContain('organizationId,idempotencyKey')
+    expect(indexFields('TransferDocument')).toContain('organizationId,displayNumber')
+    expect(indexFields('TransferDocumentItem')).toContain('transferDocumentId,orderItemId')
   })
 
   it('initializes all models and principal associations without connecting', async () => {
@@ -48,15 +50,20 @@ describe('database schema', () => {
 
     try {
       const models = initializeModels(sequelize)
-      expect(Object.keys(models)).toHaveLength(50)
+      expect(Object.keys(models)).toHaveLength(52)
       expect(models.Organization.associations.branches).toBeTruthy()
       expect(models.User.associations.roles).toBeTruthy()
       expect(models.Order.associations.items).toBeTruthy()
+      expect(models.Order.associations.acceptanceLocation).toBeTruthy()
+      expect(models.Order.associations.issueLocation).toBeTruthy()
+      expect(models.Order.associations.createdBy).toBeTruthy()
       expect(models.OrderItem.associations.stageHistory).toBeTruthy()
       expect(models.OrderItem.associations.nomenclature).toBeTruthy()
       expect(models.NomenclatureItem.associations.defectGroup).toBeTruthy()
       expect(models.DefectGroup.associations.defects).toBeTruthy()
       expect(models.Payment.associations.refunds).toBeTruthy()
+      expect(models.TransferDocument.associations.items).toBeTruthy()
+      expect(models.TransferDocumentItem.associations.orderItem).toBeTruthy()
     } finally {
       await sequelize.close()
     }

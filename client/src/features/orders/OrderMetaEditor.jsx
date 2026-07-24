@@ -3,12 +3,23 @@ import { useState } from 'react'
 import { ClientPickerModal } from '../../pages/ClientPickerModal.jsx'
 import { apiError } from '../../pages/workspace-utils.js'
 
-export function OrderMetaEditor({ order, updateOrder, onClose }) {
+export function OrderMetaEditor({ branches, order, updateOrder, onClose }) {
   const [pickerOpen, setPickerOpen] = useState(false)
+  const issueLocations = branches.flatMap((branch) =>
+    (branch.locations ?? []).map((location) => ({
+      ...location,
+      branchName: branch.name,
+    })),
+  )
   const [form, setForm] = useState({
     clientId: order.clientId,
     client: order.client,
+    issueLocationId:
+      order.issueLocationId || order.acceptanceLocationId || issueLocations[0]?.id || '',
     dueAt: order.dueAt ? new Date(order.dueAt).toLocaleString('sv-SE').slice(0, 16) : '',
+    urgency: order.urgency || 'normal',
+    notificationPhone: order.notificationPhone || order.client?.phone || '',
+    isRework: Boolean(order.isRework),
     notes: order.notes || '',
   })
 
@@ -43,7 +54,11 @@ export function OrderMetaEditor({ order, updateOrder, onClose }) {
               updateOrder.mutate(
                 {
                   clientId: form.clientId,
+                  issueLocationId: form.issueLocationId,
                   dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : null,
+                  urgency: form.urgency,
+                  notificationPhone: form.notificationPhone || null,
+                  isRework: form.isRework,
                   notes: form.notes || null,
                 },
                 { onSuccess: onClose },
@@ -69,16 +84,97 @@ export function OrderMetaEditor({ order, updateOrder, onClose }) {
                 Сменить клиента
               </button>
             </div>
-            <label>
-              Срок готовности
+            <div className="form-grid">
+              <label>
+                Точка выдачи
+                <select
+                  required
+                  value={form.issueLocationId}
+                  onChange={(event) =>
+                    setForm((value) => ({
+                      ...value,
+                      issueLocationId: event.target.value,
+                    }))
+                  }
+                >
+                  {issueLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.branchName} · {location.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Срок готовности
+                <input
+                  type="datetime-local"
+                  value={form.dueAt}
+                  onChange={(event) =>
+                    setForm((value) => ({ ...value, dueAt: event.target.value }))
+                  }
+                />
+                <small>
+                  {order.dueDateMode === 'manual'
+                    ? 'Дата была установлена вручную.'
+                    : 'Дата рассчитана автоматически по нормативу изделия.'}
+                </small>
+              </label>
+              <label>
+                Срочность
+                <select
+                  value={form.urgency}
+                  onChange={(event) =>
+                    setForm((value) => ({
+                      ...value,
+                      urgency: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="normal">Обычный заказ</option>
+                  <option value="urgent">Срочный</option>
+                  <option value="express">Экспресс</option>
+                </select>
+              </label>
+              <label>
+                Телефон для уведомлений
+                <input
+                  type="tel"
+                  maxLength="32"
+                  value={form.notificationPhone}
+                  onChange={(event) =>
+                    setForm((value) => ({
+                      ...value,
+                      notificationPhone: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            </div>
+            <label className="order-rework-check">
               <input
-                type="datetime-local"
-                value={form.dueAt}
+                type="checkbox"
+                checked={form.isRework}
                 onChange={(event) =>
-                  setForm((value) => ({ ...value, dueAt: event.target.value }))
+                  setForm((value) => ({
+                    ...value,
+                    isRework: event.target.checked,
+                  }))
                 }
               />
+              <span>
+                <strong>Повторная обработка</strong>
+                <small>Возврат или доработка ранее принятого изделия</small>
+              </span>
             </label>
+            {order.dueDateMode === 'manual' && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setForm((value) => ({ ...value, dueAt: '' }))}
+              >
+                Вернуть автоматический расчёт срока
+              </button>
+            )}
             <label>
               Комментарий
               <textarea

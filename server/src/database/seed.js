@@ -299,6 +299,7 @@ export async function seed(sequelize, logger) {
         'area',
         59000,
         ids.defectGroupCarpets,
+        72,
       ],
       [
         '50000000-0000-4000-8000-000000000001',
@@ -307,6 +308,7 @@ export async function seed(sequelize, logger) {
         'quantity',
         250000,
         ids.defectGroupClothing,
+        72,
       ],
       [
         '50000000-0000-4000-8000-000000000002',
@@ -315,6 +317,7 @@ export async function seed(sequelize, logger) {
         'quantity',
         220000,
         ids.defectGroupClothing,
+        48,
       ],
       [
         '50000000-0000-4000-8000-000000000003',
@@ -323,6 +326,7 @@ export async function seed(sequelize, logger) {
         'quantity',
         180000,
         ids.defectGroupClothing,
+        48,
       ],
       [
         '50000000-0000-4000-8000-000000000004',
@@ -331,6 +335,7 @@ export async function seed(sequelize, logger) {
         'length',
         45000,
         null,
+        72,
       ],
       [
         '50000000-0000-4000-8000-000000000005',
@@ -339,11 +344,12 @@ export async function seed(sequelize, logger) {
         'weight',
         35000,
         null,
+        24,
       ],
     ]
     for (const [
       index,
-      [id, name, unit, calculationType, unitPrice, defectGroupId],
+      [id, name, unit, calculationType, unitPrice, defectGroupId, leadTimeHours],
     ] of nomenclatureItems.entries()) {
       const [item] = await models.NomenclatureItem.findOrCreate({
         where: { id },
@@ -355,12 +361,13 @@ export async function seed(sequelize, logger) {
           unitPrice,
           currency: 'RUB',
           defectGroupId,
+          leadTimeHours,
           version: 0,
         },
         ...common,
       })
-      if (item.defectGroupId !== defectGroupId) {
-        await item.update({ defectGroupId }, common)
+      if (item.defectGroupId !== defectGroupId || item.leadTimeHours !== leadTimeHours) {
+        await item.update({ defectGroupId, leadTimeHours }, common)
       }
       await models.PriceListItem.findOrCreate({
         where: {

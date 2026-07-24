@@ -348,6 +348,7 @@ export async function seedDemoOrders(models, ids, transaction) {
         organizationId: ids.organization,
         branchId: ids.branch,
         acceptanceLocationId: ids.location,
+        issueLocationId: ids.location,
         clientId: clientId(order.client),
         sequence,
         displayNumber,
@@ -529,9 +530,6 @@ export async function seedDemoOrders(models, ids, transaction) {
     transaction,
   })
   if (BigInt(sequenceRow.nextValue) < maximumSequence) {
-    await sequenceRow.update(
-      { nextValue: maximumSequence.toString() },
-      { transaction },
-    )
+    await sequenceRow.update({ nextValue: maximumSequence.toString() }, { transaction })
   }
 }

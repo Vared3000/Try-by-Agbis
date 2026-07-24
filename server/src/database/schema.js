@@ -318,6 +318,7 @@ export const schema = {
       unit: string(32),
       calculationType: string(32),
       unitPrice: money(),
+      leadTimeHours: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 48 },
       currency: { ...string(3), defaultValue: 'RUB' },
       defectGroupId: nullableUuid({ tableName: 'defect_groups', key: 'id' }),
       ...archived,
@@ -440,11 +441,16 @@ export const schema = {
     {
       branchId: uuid({ tableName: 'branches', key: 'id' }),
       acceptanceLocationId: uuid({ tableName: 'locations', key: 'id' }),
+      issueLocationId: nullableUuid({ tableName: 'locations', key: 'id' }),
       clientId: uuid({ tableName: 'clients', key: 'id' }),
       sequence: { type: DataTypes.BIGINT, allowNull: false },
       displayNumber: string(64),
       acceptedOn: { type: DataTypes.DATEONLY, allowNull: false },
       dueAt: { type: DataTypes.DATE, allowNull: true },
+      dueDateMode: { ...string(32), defaultValue: 'automatic' },
+      urgency: { ...string(32), defaultValue: 'normal' },
+      notificationPhone: string(32, true),
+      isRework: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
       status: string(32),
       subtotalAmount: money(),
       discountAmount: money(),
@@ -465,6 +471,10 @@ export const schema = {
         { unique: true, fields: ['organizationId', 'displayNumber'] },
         { fields: ['organizationId', 'clientId', 'createdAt'] },
         { fields: ['organizationId', 'status'] },
+        {
+          name: 'orders_organization_issue_location',
+          fields: ['organizationId', 'issueLocationId'],
+        },
       ],
     },
   ),
@@ -571,6 +581,37 @@ export const schema = {
       reason: string(500, true),
     },
     { tableName: 'item_movements' },
+  ),
+  TransferDocument: tenantEntity(
+    {
+      displayNumber: string(64),
+      fromLocationId: uuid({ tableName: 'locations', key: 'id' }),
+      toLocationId: uuid({ tableName: 'locations', key: 'id' }),
+      status: { ...string(32), defaultValue: 'draft' },
+      notes: string(1000, true),
+      createdByUserId: uuid({ tableName: 'users', key: 'id' }),
+      sentAt: { type: DataTypes.DATE, allowNull: true },
+      receivedAt: { type: DataTypes.DATE, allowNull: true },
+      ...versioned,
+    },
+    {
+      tableName: 'transfer_documents',
+      indexes: [
+        { unique: true, fields: ['organizationId', 'displayNumber'] },
+        { fields: ['organizationId', 'status', 'createdAt'] },
+      ],
+    },
+  ),
+  TransferDocumentItem: tenantEntity(
+    {
+      transferDocumentId: uuid({ tableName: 'transfer_documents', key: 'id' }),
+      orderItemId: uuid({ tableName: 'order_items', key: 'id' }),
+      status: { ...string(32), defaultValue: 'planned' },
+    },
+    {
+      tableName: 'transfer_document_items',
+      indexes: [{ unique: true, fields: ['transferDocumentId', 'orderItemId'] }],
+    },
   ),
   OrderIssue: tenantEntity(
     {

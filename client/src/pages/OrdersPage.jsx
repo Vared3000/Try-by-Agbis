@@ -28,6 +28,11 @@ import { apiError, money, openApiDocument, orderStatusLabel } from './workspace-
 
 const findName = (rows, id) => rows?.find((row) => row.id === id)?.name
 const finalOrderStatuses = new Set(['issued', 'cancelled'])
+const urgencyLabels = {
+  normal: 'Обычный',
+  urgent: 'Срочный',
+  express: 'Экспресс',
+}
 
 export function OrdersPage() {
   const queryClient = useQueryClient()
@@ -51,7 +56,11 @@ export function OrdersPage() {
     clientId: requestedClientId,
     branchId: '',
     acceptanceLocationId: '',
+    issueLocationId: '',
     dueAt: '',
+    urgency: 'normal',
+    notificationPhone: '',
+    isRework: false,
     notes: '',
   })
   const [itemForm, setItemForm] = useState({
@@ -160,6 +169,14 @@ export function OrdersPage() {
   const locations =
     branches.find((branch) => branch.id === effectiveBranchId)?.locations ?? []
   const effectiveLocationId = orderForm.acceptanceLocationId || locations[0]?.id || ''
+  const issueLocations = branches.flatMap((branch) =>
+    (branch.locations ?? []).map((location) => ({
+      ...location,
+      branchName: branch.name,
+    })),
+  )
+  const effectiveIssueLocationId =
+    orderForm.issueLocationId || effectiveLocationId || issueLocations[0]?.id || ''
   const selectedClient =
     clients.data?.find((client) => client.id === orderForm.clientId) ??
     (requestedClient.data?.id === orderForm.clientId ? requestedClient.data : null)
@@ -170,7 +187,11 @@ export function OrdersPage() {
           clientId: orderForm.clientId,
           branchId: effectiveBranchId,
           acceptanceLocationId: effectiveLocationId,
+          issueLocationId: effectiveIssueLocationId,
           dueAt: orderForm.dueAt ? new Date(orderForm.dueAt).toISOString() : null,
+          urgency: orderForm.urgency,
+          notificationPhone: orderForm.notificationPhone || selectedClient?.phone || null,
+          isRework: orderForm.isRework,
           notes: orderForm.notes || null,
         })
       ).data.data,
@@ -321,8 +342,13 @@ export function OrdersPage() {
             effectiveBranchId={effectiveBranchId}
             effectiveLocationId={effectiveLocationId}
             errorMessage={createOrder.error ? apiError(createOrder.error) : ''}
-            form={orderForm}
+            form={{
+              ...orderForm,
+              notificationPhone:
+                orderForm.notificationPhone || selectedClient?.phone || '',
+            }}
             isPending={createOrder.isPending}
+            issueLocations={issueLocations}
             locations={locations}
             onChooseClient={() => setClientPickerOpen(true)}
             onFormChange={(changes) =>
@@ -386,7 +412,11 @@ export function OrdersPage() {
               if (current.some((row) => row.id === client.id)) return current
               return [client, ...current]
             })
-            setOrderForm((value) => ({ ...value, clientId: client.id }))
+            setOrderForm((value) => ({
+              ...value,
+              clientId: client.id,
+              notificationPhone: value.notificationPhone || client.phone || '',
+            }))
           }}
         />
       )}
@@ -453,16 +483,55 @@ function OrderEditor({
     <div className="order-editor">
       <div className="order-summary">
         <div>
-          <span className="status-pill">{orderStatusLabel(order.status)}</span>
+          <div className="order-summary-badges">
+            <span className="status-pill">{orderStatusLabel(order.status)}</span>
+            {order.urgency && order.urgency !== 'normal' && (
+              <span className={`status-pill urgency-${order.urgency}`}>
+                {urgencyLabels[order.urgency]}
+              </span>
+            )}
+            {order.isRework && (
+              <span className="status-pill rework-pill">Повторная обработка</span>
+            )}
+          </div>
           <h2>{order.displayNumber}</h2>
-          <p>{order.client?.fullName}</p>
-          {order.dueAt && (
-            <p>Срок готовности: {new Date(order.dueAt).toLocaleString('ru-RU')}</p>
-          )}
-          {order.notes && <p>Комментарий: {order.notes}</p>}
+          <strong className="order-client-name">{order.client?.fullName}</strong>
+          <div className="order-operational-meta">
+            <OrderMetaValue
+              label="Принят"
+              value={`${new Date(order.createdAt).toLocaleString('ru-RU')} · ${
+                order.acceptanceLocation?.name || order.branch?.name || 'Точка не указана'
+              }`}
+            />
+            <OrderMetaValue
+              label={
+                order.dueDateMode === 'manual'
+                  ? 'Выдать · дата вручную'
+                  : 'Выдать · рассчитано'
+              }
+              value={
+                order.dueAt
+                  ? `${new Date(order.dueAt).toLocaleString('ru-RU')} · ${
+                      order.issueLocation?.name || 'Точка не указана'
+                    }`
+                  : `Срок не назначен · ${
+                      order.issueLocation?.name || 'Точка не указана'
+                    }`
+              }
+            />
+            <OrderMetaValue
+              label="Уведомления"
+              value={order.notificationPhone || 'Телефон не указан'}
+            />
+            <OrderMetaValue
+              label="Приёмщик"
+              value={order.createdBy?.displayName || 'Не указан'}
+            />
+          </div>
+          {order.notes && <p className="order-summary-notes">{order.notes}</p>}
           {editable && (
             <button className="text-button" onClick={() => setMetaOpen(true)}>
-              Изменить клиента, срок и комментарий
+              Изменить реквизиты заказа
             </button>
           )}
         </div>
@@ -1001,6 +1070,7 @@ function OrderEditor({
       </div>
       {metaOpen && (
         <OrderMetaEditor
+          branches={branches}
           order={order}
           updateOrder={updateOrder}
           onClose={() => setMetaOpen(false)}
@@ -1039,5 +1109,14 @@ function RemoveServiceButton({ itemId, service, onChanged }) {
         <small className="item-status-error">{apiError(removeService.error)}</small>
       )}
     </>
+  )
+}
+
+function OrderMetaValue({ label, value }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }

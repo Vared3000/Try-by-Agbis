@@ -610,6 +610,7 @@ integration('auth API with PostgreSQL', () => {
       organizationId: ids.organization,
       branchId: ids.branch,
       acceptanceLocationId: ids.location,
+      issueLocationId: ids.location,
       clientId: client.id,
       sequence: '1',
       displayNumber: 'RECEPTION-20250101-1-1',
@@ -631,12 +632,22 @@ integration('auth API with PostgreSQL', () => {
       .send({
         branchId: ids.branch,
         acceptanceLocationId: ids.location,
+        issueLocationId: ids.location,
         clientId: client.id,
+        urgency: 'urgent',
+        notificationPhone: '+79995554433',
+        isRework: true,
       })
       .expect(201)
     expect(order.body.data.displayNumber).toBe('000002-1')
     expect(order.body.data.sequence).toBe('2')
     expect(order.body.data.displayNumber).not.toBe('RECEPTION-20250101-1-1')
+    expect(order.body.data.issueLocationId).toBe(ids.location)
+    expect(order.body.data.urgency).toBe('urgent')
+    expect(order.body.data.notificationPhone).toBe('+79995554433')
+    expect(order.body.data.isRework).toBe(true)
+    expect(order.body.data.dueDateMode).toBe('automatic')
+    expect(order.body.data.dueAt).toBeTruthy()
 
     const updatedOrder = await request(app)
       .patch(`/api/v1/orders/${order.body.data.id}`)
@@ -644,10 +655,17 @@ integration('auth API with PostgreSQL', () => {
       .send({
         clientId: client.id,
         dueAt: '2026-08-01T12:00:00.000Z',
+        urgency: 'express',
+        notificationPhone: '+79990001122',
+        isRework: false,
         notes: 'Integration reception note',
       })
       .expect(200)
     expect(updatedOrder.body.data.notes).toBe('Integration reception note')
+    expect(updatedOrder.body.data.urgency).toBe('express')
+    expect(updatedOrder.body.data.notificationPhone).toBe('+79990001122')
+    expect(updatedOrder.body.data.isRework).toBe(false)
+    expect(updatedOrder.body.data.dueDateMode).toBe('manual')
 
     const item = await request(app)
       .post(`/api/v1/orders/${order.body.data.id}/items`)
@@ -1121,9 +1139,11 @@ integration('auth API with PostgreSQL', () => {
         name: 'Integration wool carpet',
         unit: 'square_meter',
         unitPrice: '59000',
+        leadTimeHours: 72,
       })
       .expect(201)
     expect(position.body.data.calculationType).toBe('area')
+    expect(position.body.data.leadTimeHours).toBe(72)
     const activePriceList = await sequelize.models.PriceList.findOne({
       where: { organizationId: ids.organization, status: 'active' },
       order: [['validFrom', 'DESC']],
@@ -1162,6 +1182,14 @@ integration('auth API with PostgreSQL', () => {
     expect(item.body.data.unitPrice).toBe('61000')
     expect(item.body.data.totalAmount).toBe('0')
     expect(item.body.data.routeId).toBe(ids.productionRoute)
+    const orderAfterItem = await request(app)
+      .get(`/api/v1/orders/${order.body.data.id}`)
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(orderAfterItem.body.data.dueDateMode).toBe('automatic')
+    expect(new Date(orderAfterItem.body.data.dueAt).getTime()).toBeGreaterThan(
+      new Date(order.body.data.dueAt).getTime(),
+    )
 
     const service = await sequelize.models.Service.findOne({
       where: { organizationId: ids.organization },

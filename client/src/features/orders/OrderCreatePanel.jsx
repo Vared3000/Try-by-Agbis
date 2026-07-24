@@ -5,6 +5,7 @@ export function OrderCreatePanel({
   errorMessage,
   form,
   isPending,
+  issueLocations,
   locations,
   onChooseClient,
   onFormChange,
@@ -84,11 +85,51 @@ export function OrderCreatePanel({
           </select>
         </label>
         <label>
+          Точка выдачи
+          <select
+            required
+            value={form.issueLocationId || effectiveLocationId}
+            onChange={(event) => onFormChange({ issueLocationId: event.target.value })}
+          >
+            {issueLocations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.branchName} · {location.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Дата приёма
+          <input disabled type="text" value={new Date().toLocaleDateString('ru-RU')} />
+        </label>
+        <label>
           Срок готовности
           <input
             type="datetime-local"
             value={form.dueAt}
             onChange={(event) => onFormChange({ dueAt: event.target.value })}
+          />
+          <small>Оставьте пустым — система рассчитает дату автоматически.</small>
+        </label>
+        <label>
+          Срочность
+          <select
+            value={form.urgency}
+            onChange={(event) => onFormChange({ urgency: event.target.value })}
+          >
+            <option value="normal">Обычный заказ</option>
+            <option value="urgent">Срочный</option>
+            <option value="express">Экспресс</option>
+          </select>
+        </label>
+        <label>
+          Телефон для уведомлений
+          <input
+            type="tel"
+            maxLength="32"
+            value={form.notificationPhone}
+            onChange={(event) => onFormChange({ notificationPhone: event.target.value })}
+            placeholder="+7 999 000-00-00"
           />
         </label>
         <label>
@@ -97,6 +138,17 @@ export function OrderCreatePanel({
             value={form.notes}
             onChange={(event) => onFormChange({ notes: event.target.value })}
           />
+        </label>
+        <label className="order-rework-check">
+          <input
+            type="checkbox"
+            checked={form.isRework}
+            onChange={(event) => onFormChange({ isRework: event.target.checked })}
+          />
+          <span>
+            <strong>Повторная обработка</strong>
+            <small>Возврат или доработка ранее принятого изделия</small>
+          </span>
         </label>
 
         {errorMessage && <p className="form-error field-wide">{errorMessage}</p>}
