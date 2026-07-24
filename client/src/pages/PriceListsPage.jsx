@@ -3,9 +3,11 @@ import { useState } from 'react'
 
 import { apiClient } from '../api/client.js'
 import { NomenclatureCombobox } from '../features/orders/NomenclatureCombobox.jsx'
+import { ServiceCombobox } from '../features/orders/ServiceCombobox.jsx'
 import { apiError, money } from './workspace-utils.js'
 
 const unitLabels = {
+  item: 'шт.',
   piece: 'шт.',
   square_meter: 'м²',
   linear_meter: 'пог. м',
@@ -22,7 +24,9 @@ export function PriceListsPage() {
     status: 'active',
   })
   const [itemForm, setItemForm] = useState({
+    kind: 'nomenclature',
     nomenclatureItemId: '',
+    serviceId: '',
     price: '',
   })
   const [editingPrice, setEditingPrice] = useState({ id: '', price: '' })
@@ -43,15 +47,24 @@ export function PriceListsPage() {
     queryKey: ['nomenclature'],
     queryFn: async () => (await apiClient.get('/nomenclature')).data.data,
   })
+  const services = useQuery({
+    queryKey: ['services'],
+    queryFn: async () => (await apiClient.get('/services')).data.data,
+  })
   const existingNomenclatureIds = new Set(
-    (detail.data?.items ?? [])
-      .map((row) => row.nomenclatureItemId)
-      .filter(Boolean),
+    (detail.data?.items ?? []).map((row) => row.nomenclatureItemId).filter(Boolean),
   )
   const availableNomenclature = (nomenclature.data ?? []).filter(
     (row) =>
-      row.id === itemForm.nomenclatureItemId ||
-      !existingNomenclatureIds.has(row.id),
+      row.id === itemForm.nomenclatureItemId || !existingNomenclatureIds.has(row.id),
+  )
+  const existingGenericServiceIds = new Set(
+    (detail.data?.items ?? [])
+      .filter((row) => row.serviceId && !row.garmentTypeId)
+      .map((row) => row.serviceId),
+  )
+  const availableServices = (services.data ?? []).filter(
+    (row) => row.id === itemForm.serviceId || !existingGenericServiceIds.has(row.id),
   )
   const createList = useMutation({
     mutationFn: async () =>
@@ -70,11 +83,18 @@ export function PriceListsPage() {
   const addPrice = useMutation({
     mutationFn: () =>
       apiClient.post(`/price-lists/${effectiveId}/items`, {
-        nomenclatureItemId: itemForm.nomenclatureItemId,
+        ...(itemForm.kind === 'service'
+          ? { serviceId: itemForm.serviceId, garmentTypeId: null }
+          : { nomenclatureItemId: itemForm.nomenclatureItemId }),
         price: String(Math.round(Number(itemForm.price.replace(',', '.')) * 100)),
       }),
     onSuccess: () => {
-      setItemForm({ nomenclatureItemId: '', price: '' })
+      setItemForm((value) => ({
+        kind: value.kind,
+        nomenclatureItemId: '',
+        serviceId: '',
+        price: '',
+      }))
       queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
     },
   })
@@ -245,19 +265,65 @@ export function PriceListsPage() {
               addPrice.mutate()
             }}
           >
-            <NomenclatureCombobox
-              items={availableNomenclature}
-              value={itemForm.nomenclatureItemId}
-              onChange={(nomenclatureItemId) => {
-                const selected = nomenclature.data?.find(
-                  (row) => row.id === nomenclatureItemId,
-                )
-                setItemForm({
-                  nomenclatureItemId,
-                  price: selected ? String(Number(selected.unitPrice) / 100) : '',
-                })
-              }}
-            />
+            <div
+              className="price-kind-switch field-wide"
+              role="group"
+              aria-label="Тип цены"
+            >
+              <button
+                type="button"
+                className={itemForm.kind === 'nomenclature' ? 'active' : ''}
+                onClick={() =>
+                  setItemForm({
+                    kind: 'nomenclature',
+                    nomenclatureItemId: '',
+                    serviceId: '',
+                    price: '',
+                  })
+                }
+              >
+                Изделие из номенклатуры
+              </button>
+              <button
+                type="button"
+                className={itemForm.kind === 'service' ? 'active' : ''}
+                onClick={() =>
+                  setItemForm({
+                    kind: 'service',
+                    nomenclatureItemId: '',
+                    serviceId: '',
+                    price: '',
+                  })
+                }
+              >
+                Дополнительная услуга
+              </button>
+            </div>
+            {itemForm.kind === 'nomenclature' ? (
+              <NomenclatureCombobox
+                items={availableNomenclature}
+                value={itemForm.nomenclatureItemId}
+                onChange={(nomenclatureItemId) => {
+                  const selected = nomenclature.data?.find(
+                    (row) => row.id === nomenclatureItemId,
+                  )
+                  setItemForm((value) => ({
+                    ...value,
+                    nomenclatureItemId,
+                    price: selected ? String(Number(selected.unitPrice) / 100) : '',
+                  }))
+                }}
+              />
+            ) : (
+              <ServiceCombobox
+                items={availableServices}
+                label="Дополнительная услуга"
+                value={itemForm.serviceId}
+                onChange={(serviceId) =>
+                  setItemForm((value) => ({ ...value, serviceId }))
+                }
+              />
+            )}
             <label>
               Цена за единицу, ₽
               <input
@@ -274,15 +340,28 @@ export function PriceListsPage() {
             </label>
             <button
               className="primary-button"
-              disabled={!itemForm.nomenclatureItemId || addPrice.isPending}
+              disabled={
+                !(itemForm.kind === 'service'
+                  ? itemForm.serviceId
+                  : itemForm.nomenclatureItemId) || addPrice.isPending
+              }
             >
               {addPrice.isPending ? 'Добавляем…' : 'Добавить в прайс'}
             </button>
-            {!nomenclature.isPending && !availableNomenclature.length && (
-              <p className="form-hint field-wide">
-                Все позиции номенклатуры уже добавлены в этот прайс-лист.
-              </p>
-            )}
+            {itemForm.kind === 'nomenclature' &&
+              !nomenclature.isPending &&
+              !availableNomenclature.length && (
+                <p className="form-hint field-wide">
+                  Все позиции номенклатуры уже добавлены в этот прайс-лист.
+                </p>
+              )}
+            {itemForm.kind === 'service' &&
+              !services.isPending &&
+              !availableServices.length && (
+                <p className="form-hint field-wide">
+                  Все дополнительные услуги уже добавлены в этот прайс-лист.
+                </p>
+              )}
           </form>
         )}
         {addPrice.error && <p className="form-error">{apiError(addPrice.error)}</p>}
@@ -294,15 +373,19 @@ export function PriceListsPage() {
               <div>
                 <strong>
                   {row.nomenclature?.name ||
+                    (row.service && row.garmentType
+                      ? `${row.service.name} · ${row.garmentType.name}`
+                      : row.service?.name) ||
                     row.garmentType?.name ||
-                    row.service?.name ||
                     'Позиция'}
                 </strong>
                 <span>
                   {row.nomenclature
                     ? `Цена за ${unitLabels[row.nomenclature.unit] || row.nomenclature.unit}`
                     : row.service
-                      ? `Дополнительная услуга: ${row.service.name}`
+                      ? row.garmentType
+                        ? `Услуга для типа изделия · ${unitLabels[row.service.unit] || row.service.unit}`
+                        : `Дополнительная услуга · за ${unitLabels[row.service.unit] || row.service.unit}`
                       : 'Старая строка прайса'}
                 </span>
               </div>

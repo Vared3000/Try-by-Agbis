@@ -835,14 +835,27 @@ function OrderEditor({
                     {(item.services ?? []).map((service) => (
                       <div key={service.id}>
                         <span>
-                          {service.serviceName} × {service.quantity}
+                          <strong>{service.serviceName}</strong>
+                          <small>
+                            {money(service.unitPrice)} ×{' '}
+                            {Number(service.quantity).toLocaleString('ru-RU')}
+                          </small>
                         </span>
-                        <strong>{money(service.totalPrice)}</strong>
+                        <span className="service-line-actions">
+                          <strong>{money(service.totalPrice)}</strong>
+                          {editable && (
+                            <RemoveServiceButton
+                              itemId={item.id}
+                              service={service}
+                              onChanged={onChanged}
+                            />
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
                   <ItemPhotos item={item} editable={editable} onChanged={onChanged} />
-                  {editable && !item.nomenclatureItemId && (
+                  {editable && (
                     <ServiceAdder item={item} prices={prices} onChanged={onChanged} />
                   )}
                 </div>
@@ -1002,5 +1015,29 @@ function OrderEditor({
         />
       )}
     </div>
+  )
+}
+
+function RemoveServiceButton({ itemId, service, onChanged }) {
+  const removeService = useMutation({
+    mutationFn: () => apiClient.delete(`/orders/items/${itemId}/services/${service.id}`),
+    onSuccess: onChanged,
+  })
+
+  return (
+    <>
+      <button
+        type="button"
+        className="text-button danger"
+        disabled={removeService.isPending}
+        onClick={() => removeService.mutate()}
+        aria-label={`Удалить услугу ${service.serviceName}`}
+      >
+        Удалить
+      </button>
+      {removeService.error && (
+        <small className="item-status-error">{apiError(removeService.error)}</small>
+      )}
+    </>
   )
 }

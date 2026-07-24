@@ -92,6 +92,11 @@ function millisToDecimal(value) {
   return `${whole}.${fraction}`
 }
 
+function totalAfterDiscount(subtotal, discount) {
+  const result = subtotal - discount
+  return result > 0n ? result : 0n
+}
+
 const requestHash = (value) => createHash('sha256').update(value).digest('hex')
 
 const createLabelImages = async (scanCode) => {
@@ -603,10 +608,7 @@ export function createOrdersRouter({ sequelize, env }) {
             organizationId: req.auth.organizationId,
             status: 'active',
             validFrom: { [Op.lte]: order.acceptedOn },
-            [Op.or]: [
-              { validTo: null },
-              { validTo: { [Op.gte]: order.acceptedOn } },
-            ],
+            [Op.or]: [{ validTo: null }, { validTo: { [Op.gte]: order.acceptedOn } }],
           },
           order: [['validFrom', 'DESC']],
           transaction,
@@ -931,20 +933,42 @@ export function createOrdersRouter({ sequelize, env }) {
             message: 'Нет действующего прайс-листа',
           })
         }
-        const price = await models.PriceListItem.findOne({
+        const garmentScope = item.garmentTypeId
+          ? { [Op.or]: [{ garmentTypeId: item.garmentTypeId }, { garmentTypeId: null }] }
+          : { garmentTypeId: null }
+        const priceCandidates = await models.PriceListItem.findAll({
           where: {
             priceListId: priceList.id,
             serviceId: input.serviceId,
-            garmentTypeId: item.garmentTypeId,
+            ...garmentScope,
           },
           include: [{ model: models.Service, as: 'service' }],
           transaction,
         })
+        const price =
+          priceCandidates.find(
+            (candidate) => candidate.garmentTypeId === item.garmentTypeId,
+          ) ?? priceCandidates.find((candidate) => !candidate.garmentTypeId)
         if (!price || price.service.organizationId !== req.auth.organizationId) {
           throw new ApiError({
             status: 422,
             code: 'SERVICE_PRICE_NOT_FOUND',
             message: 'Цена услуги для изделия не найдена',
+          })
+        }
+        const duplicate = await models.OrderItemService.findOne({
+          where: {
+            organizationId: req.auth.organizationId,
+            orderItemId: item.id,
+            serviceId: input.serviceId,
+          },
+          transaction,
+        })
+        if (duplicate) {
+          throw new ApiError({
+            status: 409,
+            code: 'ORDER_ITEM_SERVICE_DUPLICATE',
+            message: 'Эта услуга уже добавлена к изделию',
           })
         }
         const millis = quantityMillis(input.quantity)
@@ -966,18 +990,139 @@ export function createOrdersRouter({ sequelize, env }) {
           { totalAmount: itemTotal.toString(), version: item.version + 1 },
           { transaction },
         )
-        const orderTotal = BigInt(item.order.subtotalAmount) + total
+        const nextSubtotal = BigInt(item.order.subtotalAmount) + total
+        const nextTotal = totalAfterDiscount(
+          nextSubtotal,
+          BigInt(item.order.discountAmount),
+        )
         await item.order.update(
           {
-            subtotalAmount: orderTotal.toString(),
-            totalAmount: orderTotal.toString(),
+            subtotalAmount: nextSubtotal.toString(),
+            totalAmount: nextTotal.toString(),
             version: item.order.version + 1,
+          },
+          { transaction },
+        )
+        await models.AuditLog.create(
+          {
+            organizationId: req.auth.organizationId,
+            actorUserId: req.auth.userId,
+            action: 'order_item.service_add',
+            entityType: 'OrderItemService',
+            entityId: service.id,
+            correlationId: req.correlationId,
+            before: null,
+            after: {
+              orderItemId: item.id,
+              serviceId: service.serviceId,
+              serviceName: service.serviceName,
+              unitPrice: service.unitPrice,
+              quantity: service.quantity,
+              totalPrice: service.totalPrice,
+            },
+            occurredAt: new Date(),
           },
           { transaction },
         )
         return service
       })
       res.status(201).json(success(snapshot, req.correlationId))
+    },
+  )
+
+  router.delete(
+    '/items/:itemId/services/:serviceLineId',
+    requirePermission('orders.update'),
+    async (req, res) => {
+      const result = await sequelize.transaction(async (transaction) => {
+        const item = await models.OrderItem.findOne({
+          where: {
+            id: req.params.itemId,
+            organizationId: req.auth.organizationId,
+          },
+          include: [{ model: models.Order, as: 'order', required: true }],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+        if (
+          !item ||
+          item.order.status !== 'draft' ||
+          !req.auth.branchIds.includes(item.order.branchId)
+        ) {
+          throw missing('ORDER_ITEM_NOT_FOUND', 'Изделие не найдено')
+        }
+        const service = await models.OrderItemService.findOne({
+          where: {
+            id: req.params.serviceLineId,
+            orderItemId: item.id,
+            organizationId: req.auth.organizationId,
+          },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        })
+        if (!service) {
+          throw missing('ORDER_ITEM_SERVICE_NOT_FOUND', 'Услуга изделия не найдена')
+        }
+        const nextItemTotal = BigInt(item.totalAmount) - BigInt(service.totalPrice)
+        const nextSubtotal =
+          BigInt(item.order.subtotalAmount) - BigInt(service.totalPrice)
+        const nextTotal = totalAfterDiscount(
+          nextSubtotal,
+          BigInt(item.order.discountAmount),
+        )
+        if (nextTotal < BigInt(item.order.paidAmount)) {
+          throw new ApiError({
+            status: 409,
+            code: 'ORDER_TOTAL_BELOW_PAID',
+            message: 'Нельзя удалить услугу: итог станет меньше уже оплаченной суммы',
+          })
+        }
+        const before = {
+          orderItemId: item.id,
+          serviceId: service.serviceId,
+          serviceName: service.serviceName,
+          unitPrice: service.unitPrice,
+          quantity: service.quantity,
+          totalPrice: service.totalPrice,
+        }
+        await service.destroy({ transaction })
+        await item.update(
+          {
+            totalAmount: nextItemTotal.toString(),
+            version: item.version + 1,
+          },
+          { transaction },
+        )
+        await item.order.update(
+          {
+            subtotalAmount: nextSubtotal.toString(),
+            totalAmount: nextTotal.toString(),
+            version: item.order.version + 1,
+          },
+          { transaction },
+        )
+        await models.AuditLog.create(
+          {
+            organizationId: req.auth.organizationId,
+            actorUserId: req.auth.userId,
+            action: 'order_item.service_remove',
+            entityType: 'OrderItemService',
+            entityId: service.id,
+            correlationId: req.correlationId,
+            before,
+            after: null,
+            occurredAt: new Date(),
+          },
+          { transaction },
+        )
+        return {
+          deleted: true,
+          itemTotalAmount: nextItemTotal.toString(),
+          subtotalAmount: nextSubtotal.toString(),
+          totalAmount: nextTotal.toString(),
+        }
+      })
+      res.json(success(result, req.correlationId))
     },
   )
 
@@ -1029,11 +1174,22 @@ export function createOrdersRouter({ sequelize, env }) {
           transaction,
         })
         const nextSubtotal = BigInt(item.order.subtotalAmount) - BigInt(item.totalAmount)
+        const nextTotal = totalAfterDiscount(
+          nextSubtotal,
+          BigInt(item.order.discountAmount),
+        )
+        if (nextTotal < BigInt(item.order.paidAmount)) {
+          throw new ApiError({
+            status: 409,
+            code: 'ORDER_TOTAL_BELOW_PAID',
+            message: 'Нельзя удалить изделие: итог станет меньше уже оплаченной суммы',
+          })
+        }
         await item.destroy({ transaction })
         await item.order.update(
           {
             subtotalAmount: nextSubtotal.toString(),
-            totalAmount: nextSubtotal.toString(),
+            totalAmount: nextTotal.toString(),
             version: item.order.version + 1,
           },
           { transaction },
@@ -1041,7 +1197,7 @@ export function createOrdersRouter({ sequelize, env }) {
         return {
           deleted: true,
           subtotalAmount: nextSubtotal.toString(),
-          totalAmount: nextSubtotal.toString(),
+          totalAmount: nextTotal.toString(),
         }
       })
       res.json(success(result, req.correlationId))

@@ -667,6 +667,21 @@ integration('auth API with PostgreSQL', () => {
       .expect(201)
     expect(snapshot.body.data.totalPrice).toBe('123400')
 
+    const removedService = await request(app)
+      .delete(
+        `/api/v1/orders/items/${item.body.data.id}/services/${snapshot.body.data.id}`,
+      )
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(removedService.body.data.totalAmount).toBe('0')
+
+    const restoredSnapshot = await request(app)
+      .post(`/api/v1/orders/items/${item.body.data.id}/services`)
+      .set('Authorization', authorization)
+      .send({ serviceId: service.id, quantity: '1.000' })
+      .expect(201)
+    expect(restoredSnapshot.body.data.totalPrice).toBe('123400')
+
     await request(app)
       .post(`/api/v1/orders/${order.body.data.id}/accept`)
       .set('Authorization', authorization)
@@ -1121,9 +1136,7 @@ integration('auth API with PostgreSQL', () => {
         price: '61000',
       })
       .expect(201)
-    expect(nomenclaturePrice.body.data.nomenclatureItemId).toBe(
-      position.body.data.id,
-    )
+    expect(nomenclaturePrice.body.data.nomenclatureItemId).toBe(position.body.data.id)
 
     const client = await sequelize.models.Client.findOne({
       where: { organizationId: ids.organization },
@@ -1149,6 +1162,32 @@ integration('auth API with PostgreSQL', () => {
     expect(item.body.data.unitPrice).toBe('61000')
     expect(item.body.data.totalAmount).toBe('0')
     expect(item.body.data.routeId).toBe(ids.productionRoute)
+
+    const service = await sequelize.models.Service.findOne({
+      where: { organizationId: ids.organization },
+    })
+    await request(app)
+      .post(`/api/v1/price-lists/${activePriceList.id}/items`)
+      .set('Authorization', authorization)
+      .send({
+        serviceId: service.id,
+        garmentTypeId: null,
+        price: '99000',
+      })
+      .expect(201)
+    const addedService = await request(app)
+      .post(`/api/v1/orders/items/${item.body.data.id}/services`)
+      .set('Authorization', authorization)
+      .send({ serviceId: service.id, quantity: '1.000' })
+      .expect(201)
+    expect(addedService.body.data.totalPrice).toBe('99000')
+    const removedService = await request(app)
+      .delete(
+        `/api/v1/orders/items/${item.body.data.id}/services/${addedService.body.data.id}`,
+      )
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(removedService.body.data.totalAmount).toBe('0')
 
     await request(app)
       .post(`/api/v1/orders/${order.body.data.id}/accept`)

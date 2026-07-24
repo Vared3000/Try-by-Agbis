@@ -75,6 +75,20 @@ describe('PriceListsPage', () => {
           },
         })
       }
+      if (url === '/services') {
+        return Promise.resolve({
+          data: {
+            data: [
+              {
+                id: 'service-1',
+                name: 'Удаление пятен',
+                unit: 'item',
+                category: { name: 'Дополнительная обработка' },
+              },
+            ],
+          },
+        })
+      }
       return Promise.resolve({ data: { data: [] } })
     })
     apiClient.post.mockResolvedValue({ data: { data: { id: 'price-item-2' } } })
@@ -120,19 +134,44 @@ describe('PriceListsPage', () => {
       name: 'Позиция номенклатуры',
     })
     fireEvent.focus(combobox)
-    fireEvent.mouseDown(
-      await screen.findByRole('option', { name: /Куртка/ }),
-    )
+    fireEvent.mouseDown(await screen.findByRole('option', { name: /Куртка/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Добавить в прайс' }))
 
     await waitFor(() =>
-      expect(apiClient.post).toHaveBeenCalledWith(
-        '/price-lists/price-list-1/items',
-        {
-          nomenclatureItemId: 'nomenclature-2',
-          price: '220000',
-        },
-      ),
+      expect(apiClient.post).toHaveBeenCalledWith('/price-lists/price-list-1/items', {
+        nomenclatureItemId: 'nomenclature-2',
+        price: '220000',
+      }),
+    )
+  })
+
+  it('adds a generic additional service price', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PriceListsPage />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Дополнительная услуга' }))
+    const combobox = screen.getByRole('combobox', {
+      name: 'Дополнительная услуга',
+    })
+    fireEvent.focus(combobox)
+    fireEvent.mouseDown(await screen.findByRole('option', { name: /Удаление пятен/ }))
+    fireEvent.change(screen.getByLabelText('Цена за единицу, ₽'), {
+      target: { value: '900' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить в прайс' }))
+
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith('/price-lists/price-list-1/items', {
+        serviceId: 'service-1',
+        garmentTypeId: null,
+        price: '90000',
+      }),
     )
   })
 })

@@ -214,11 +214,7 @@ export async function seed(sequelize, logger) {
         'Верхняя одежда',
         [ids.defect, ids.defectTear, ids.defectZipper],
       ],
-      [
-        ids.defectGroupCarpets,
-        'Ковры',
-        [ids.defectTear, ids.defectUnknownStain],
-      ],
+      [ids.defectGroupCarpets, 'Ковры', [ids.defectTear, ids.defectUnknownStain]],
     ]
     for (const [id, name, defectIds] of defectGroups) {
       await models.DefectGroup.findOrCreate({
@@ -328,8 +324,22 @@ export async function seed(sequelize, logger) {
         180000,
         ids.defectGroupClothing,
       ],
-      ['50000000-0000-4000-8000-000000000004', 'Шторы', 'linear_meter', 'length', 45000, null],
-      ['50000000-0000-4000-8000-000000000005', 'Бельё', 'kilogram', 'weight', 35000, null],
+      [
+        '50000000-0000-4000-8000-000000000004',
+        'Шторы',
+        'linear_meter',
+        'length',
+        45000,
+        null,
+      ],
+      [
+        '50000000-0000-4000-8000-000000000005',
+        'Бельё',
+        'kilogram',
+        'weight',
+        35000,
+        null,
+      ],
     ]
     for (const [
       index,
@@ -442,6 +452,21 @@ export async function seed(sequelize, logger) {
       [demoServices[2][0], 90000],
       [demoServices[3][0], 120000],
     ]
+    for (const [index, [serviceId, basePrice]] of allServices.entries()) {
+      await models.PriceListItem.findOrCreate({
+        where: {
+          id: `70000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+        },
+        defaults: {
+          organizationId: ids.organization,
+          priceListId: ids.priceList,
+          serviceId,
+          garmentTypeId: null,
+          price: basePrice,
+        },
+        ...common,
+      })
+    }
     let priceIndex = 1
     for (const [serviceId, basePrice] of allServices) {
       for (const [garmentTypeId] of allGarments) {

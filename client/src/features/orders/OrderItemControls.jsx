@@ -2,7 +2,9 @@ import { useMutation } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
 import { apiClient } from '../../api/client.js'
-import { apiError, money } from '../../pages/workspace-utils.js'
+import { apiError } from '../../pages/workspace-utils.js'
+import { availableServicePrices } from './service-options.js'
+import { ServiceCombobox } from './ServiceCombobox.jsx'
 
 export function ItemPhotos({ item, editable, onChanged }) {
   const upload = useMutation({
@@ -209,7 +211,11 @@ export function MeasurementEditor({ item, onChanged }) {
 export function ServiceAdder({ item, prices, onChanged }) {
   const [serviceId, setServiceId] = useState('')
   const [quantity, setQuantity] = useState('1')
-  const options = prices.filter((price) => price.garmentTypeId === item.garmentTypeId)
+  const options = availableServicePrices(item, prices)
+  const services = options.map((price) => ({
+    ...price.service,
+    price: price.price,
+  }))
   const addService = useMutation({
     mutationFn: () =>
       apiClient.post(`/orders/items/${item.id}/services`, {
@@ -231,29 +237,35 @@ export function ServiceAdder({ item, prices, onChanged }) {
         addService.mutate()
       }}
     >
-      <select
-        required
+      <div className="service-adder-heading field-wide">
+        <strong>Добавить услугу</strong>
+        <small>Например, пятновыведение, пропитку или мелкий ремонт.</small>
+      </div>
+      <ServiceCombobox
+        items={services}
+        label="Дополнительная услуга"
         value={serviceId}
-        onChange={(event) => setServiceId(event.target.value)}
-      >
-        <option value="">Выберите услугу</option>
-        {options.map((price) => (
-          <option key={price.id} value={price.serviceId}>
-            {price.service?.name} — {money(price.price)}
-          </option>
-        ))}
-      </select>
-      <input
-        required
-        min="0.001"
-        step="0.001"
-        type="number"
-        value={quantity}
-        onChange={(event) => setQuantity(event.target.value)}
+        onChange={setServiceId}
       />
-      <button className="secondary-button">Добавить услугу</button>
+      <label>
+        Количество
+        <input
+          required
+          min="0.001"
+          step="0.001"
+          type="number"
+          value={quantity}
+          onChange={(event) => setQuantity(event.target.value)}
+        />
+      </label>
+      <button className="secondary-button" disabled={!serviceId || addService.isPending}>
+        {addService.isPending ? 'Добавляем…' : 'Добавить услугу'}
+      </button>
       {!options.length && (
-        <small className="form-hint">Для изделия нет цены в активном прайсе</small>
+        <small className="form-hint field-wide">
+          Нет доступных дополнительных услуг. Добавьте услуги и цены в активный
+          прайс-лист.
+        </small>
       )}
       {addService.error && <p className="form-error">{apiError(addService.error)}</p>}
     </form>

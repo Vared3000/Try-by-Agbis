@@ -49,13 +49,8 @@ export function createPriceListsRouter({ sequelize, env }) {
   const authenticate = createAuthenticate({
     authService: createAuthService({ sequelize, env }),
   })
-  const {
-    PriceList,
-    PriceListItem,
-    Service,
-    GarmentType,
-    NomenclatureItem,
-  } = sequelize.models
+  const { PriceList, PriceListItem, Service, GarmentType, NomenclatureItem } =
+    sequelize.models
   router.use(authenticate)
 
   const findPriceList = async (id, organizationId, options = {}) => {
@@ -177,6 +172,21 @@ export function createPriceListsRouter({ sequelize, env }) {
           status: 422,
           code: 'PRICE_LIST_REFERENCE_INVALID',
           message: 'Услуга или тип изделия недоступны',
+        })
+      }
+      const duplicate = await PriceListItem.findOne({
+        where: {
+          organizationId: req.auth.organizationId,
+          priceListId: priceList.id,
+          serviceId: input.serviceId,
+          garmentTypeId: input.garmentTypeId ?? null,
+        },
+      })
+      if (duplicate) {
+        throw new ApiError({
+          status: 409,
+          code: 'PRICE_LIST_ITEM_DUPLICATE',
+          message: 'Цена этой услуги уже добавлена в прайс-лист',
         })
       }
     }
