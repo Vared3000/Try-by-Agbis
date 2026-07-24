@@ -1,5 +1,6 @@
 import { parseEnv } from '../config/env.js'
 import { createLogger } from '../config/logger.js'
+import { seedDemoOrders } from './demo-orders.js'
 import { createSequelize } from './sequelize.js'
 
 const ids = {
@@ -367,6 +368,8 @@ export async function seed(sequelize, logger) {
         priceIndex += 1
       }
     }
+
+    await seedDemoOrders(models, ids, transaction)
   })
 
   logger.info(
