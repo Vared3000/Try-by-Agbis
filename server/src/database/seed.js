@@ -24,6 +24,11 @@ const ids = {
   priceList: '10000000-0000-4000-8000-000000000018',
   priceListItem: '10000000-0000-4000-8000-000000000019',
   nomenclatureCarpet: '10000000-0000-4000-8000-000000000020',
+  defectTear: '10000000-0000-4000-8000-000000000021',
+  defectZipper: '10000000-0000-4000-8000-000000000022',
+  defectUnknownStain: '10000000-0000-4000-8000-000000000023',
+  defectGroupClothing: '10000000-0000-4000-8000-000000000024',
+  defectGroupCarpets: '10000000-0000-4000-8000-000000000025',
 }
 
 const permissionCodes = [
@@ -190,6 +195,49 @@ export async function seed(sequelize, logger) {
       })
     }
 
+    const demoDefects = [
+      [ids.defectTear, 'TEAR', 'Порыв'],
+      [ids.defectZipper, 'ZIPPER_DAMAGED', 'Повреждена молния или бегунок'],
+      [ids.defectUnknownStain, 'UNKNOWN_STAIN', 'Пятна неизвестного происхождения'],
+    ]
+    for (const [id, code, name] of demoDefects) {
+      await models.Defect.findOrCreate({
+        where: { id },
+        defaults: { organizationId: ids.organization, code, name },
+        ...common,
+      })
+    }
+    const defectGroups = [
+      [
+        ids.defectGroupClothing,
+        'Верхняя одежда',
+        [ids.defect, ids.defectTear, ids.defectZipper],
+      ],
+      [
+        ids.defectGroupCarpets,
+        'Ковры',
+        [ids.defectTear, ids.defectUnknownStain],
+      ],
+    ]
+    for (const [id, name, defectIds] of defectGroups) {
+      await models.DefectGroup.findOrCreate({
+        where: { id },
+        defaults: {
+          organizationId: ids.organization,
+          name,
+          version: 0,
+        },
+        ...common,
+      })
+      for (const defectId of defectIds) {
+        await models.DefectGroupDefect.findOrCreate({
+          where: { defectGroupId: id, defectId },
+          defaults: { organizationId: ids.organization },
+          ...common,
+        })
+      }
+    }
+
     await models.Service.findOrCreate({
       where: { id: ids.service },
       defaults: {
@@ -247,15 +295,43 @@ export async function seed(sequelize, logger) {
     })
 
     const nomenclatureItems = [
-      [ids.nomenclatureCarpet, 'Ковер шерстяной', 'square_meter', 'area', 59000],
-      ['50000000-0000-4000-8000-000000000001', 'Пальто', 'piece', 'quantity', 250000],
-      ['50000000-0000-4000-8000-000000000002', 'Куртка', 'piece', 'quantity', 220000],
-      ['50000000-0000-4000-8000-000000000003', 'Платье', 'piece', 'quantity', 180000],
-      ['50000000-0000-4000-8000-000000000004', 'Шторы', 'linear_meter', 'length', 45000],
-      ['50000000-0000-4000-8000-000000000005', 'Бельё', 'kilogram', 'weight', 35000],
+      [
+        ids.nomenclatureCarpet,
+        'Ковер шерстяной',
+        'square_meter',
+        'area',
+        59000,
+        ids.defectGroupCarpets,
+      ],
+      [
+        '50000000-0000-4000-8000-000000000001',
+        'Пальто',
+        'piece',
+        'quantity',
+        250000,
+        ids.defectGroupClothing,
+      ],
+      [
+        '50000000-0000-4000-8000-000000000002',
+        'Куртка',
+        'piece',
+        'quantity',
+        220000,
+        ids.defectGroupClothing,
+      ],
+      [
+        '50000000-0000-4000-8000-000000000003',
+        'Платье',
+        'piece',
+        'quantity',
+        180000,
+        ids.defectGroupClothing,
+      ],
+      ['50000000-0000-4000-8000-000000000004', 'Шторы', 'linear_meter', 'length', 45000, null],
+      ['50000000-0000-4000-8000-000000000005', 'Бельё', 'kilogram', 'weight', 35000, null],
     ]
-    for (const [id, name, unit, calculationType, unitPrice] of nomenclatureItems) {
-      await models.NomenclatureItem.findOrCreate({
+    for (const [id, name, unit, calculationType, unitPrice, defectGroupId] of nomenclatureItems) {
+      const [item] = await models.NomenclatureItem.findOrCreate({
         where: { id },
         defaults: {
           organizationId: ids.organization,
@@ -264,10 +340,14 @@ export async function seed(sequelize, logger) {
           calculationType,
           unitPrice,
           currency: 'RUB',
+          defectGroupId,
           version: 0,
         },
         ...common,
       })
+      if (item.defectGroupId !== defectGroupId) {
+        await item.update({ defectGroupId }, common)
+      }
     }
 
     const demoGarments = [

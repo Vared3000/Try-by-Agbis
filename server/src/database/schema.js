@@ -265,6 +265,45 @@ export const schema = {
       indexes: [{ unique: true, fields: ['organizationId', 'code'] }],
     },
   ),
+  Defect: tenantEntity(
+    { code: string(64), name: string(), ...archived },
+    {
+      tableName: 'defects',
+      indexes: [{ unique: true, fields: ['organizationId', 'code'] }],
+    },
+  ),
+  DefectGroup: tenantEntity(
+    {
+      name: string(),
+      ...archived,
+      ...versioned,
+    },
+    {
+      tableName: 'defect_groups',
+      indexes: [
+        {
+          name: 'defect_groups_org_name',
+          fields: ['organizationId', 'name'],
+        },
+      ],
+    },
+  ),
+  DefectGroupDefect: tenantEntity(
+    {
+      defectGroupId: uuid({ tableName: 'defect_groups', key: 'id' }),
+      defectId: uuid({ tableName: 'defects', key: 'id' }),
+    },
+    {
+      tableName: 'defect_group_defects',
+      indexes: [
+        {
+          unique: true,
+          name: 'defect_group_defects_unique',
+          fields: ['defectGroupId', 'defectId'],
+        },
+      ],
+    },
+  ),
   NomenclatureItem: tenantEntity(
     {
       name: string(),
@@ -272,6 +311,7 @@ export const schema = {
       calculationType: string(32),
       unitPrice: money(),
       currency: { ...string(3), defaultValue: 'RUB' },
+      defectGroupId: nullableUuid({ tableName: 'defect_groups', key: 'id' }),
       ...archived,
       ...versioned,
     },
@@ -296,13 +336,6 @@ export const schema = {
     { code: string(64), name: string(), hex: string(7, true), ...archived },
     {
       tableName: 'colors',
-      indexes: [{ unique: true, fields: ['organizationId', 'code'] }],
-    },
-  ),
-  Defect: tenantEntity(
-    { code: string(64), name: string(), ...archived },
-    {
-      tableName: 'defects',
       indexes: [{ unique: true, fields: ['organizationId', 'code'] }],
     },
   ),

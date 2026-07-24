@@ -15,6 +15,7 @@ import {
   remainingOrderItems,
 } from '../features/orders/issue-availability.js'
 import { NomenclatureCombobox } from '../features/orders/NomenclatureCombobox.jsx'
+import { defectsForNomenclature } from '../features/orders/defect-options.js'
 import { OrderCreatePanel } from '../features/orders/OrderCreatePanel.jsx'
 import { OrderListPanel } from '../features/orders/OrderListPanel.jsx'
 import { OrderMetaEditor } from '../features/orders/OrderMetaEditor.jsx'
@@ -434,6 +435,7 @@ function OrderEditor({
       : selectedPosition?.unit === 'linear_meter'
         ? Boolean(itemForm.length)
         : true
+  const availableDefects = defectsForNomenclature(selectedPosition, defects)
 
   return (
     <div className="order-editor">
@@ -490,12 +492,13 @@ function OrderEditor({
                   quantity: '1',
                   length: '',
                   width: '',
+                  defectIds: [],
                 }))
               }
             />
             <ChoiceChecks
               title="Дефекты при приёмке"
-              rows={defects}
+              rows={availableDefects}
               selected={itemForm.defectIds}
               onChange={(defectIds) => setItemForm((value) => ({ ...value, defectIds }))}
             />

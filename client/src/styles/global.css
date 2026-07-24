@@ -1121,6 +1121,31 @@ textarea:focus {
   justify-content: flex-end;
   gap: 0.25rem;
 }
+.nomenclature-defect-group {
+  display: block;
+  margin-top: 0.25rem;
+  color: #718279;
+  font-weight: 600;
+}
+.defect-group-grid {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+.defect-group-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #e0e8e3;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+}
+.defect-group-card p {
+  margin: 0.25rem 0 0;
+  color: #718279;
+  font-size: 0.8rem;
+}
 .modal-backdrop {
   position: fixed;
   z-index: 100;

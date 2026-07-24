@@ -631,6 +631,24 @@ export function createOrdersRouter({ sequelize, env }) {
           message: 'Выбранный дефект или загрязнение недоступны',
         })
       }
+      if (nomenclature?.defectGroupId && input.defectIds.length) {
+        const uniqueDefectIds = [...new Set(input.defectIds)]
+        const allowedDefectCount = await models.DefectGroupDefect.count({
+          where: {
+            organizationId: req.auth.organizationId,
+            defectGroupId: nomenclature.defectGroupId,
+            defectId: { [Op.in]: uniqueDefectIds },
+          },
+          transaction,
+        })
+        if (allowedDefectCount !== uniqueDefectIds.length) {
+          throw new ApiError({
+            status: 422,
+            code: 'ORDER_ITEM_DEFECT_NOT_ALLOWED',
+            message: 'Выбранный дефект не подходит для этой позиции номенклатуры',
+          })
+        }
+      }
       const item = await models.OrderItem.create(
         {
           organizationId: req.auth.organizationId,

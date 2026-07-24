@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
 import { apiClient } from '../api/client.js'
+import { DefectGroupsPanel } from '../features/nomenclature/DefectGroupsPanel.jsx'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { apiError, money } from './workspace-utils.js'
 
@@ -26,6 +27,7 @@ const emptyForm = {
   price: '',
   length: '',
   width: '',
+  defectGroupId: '',
 }
 
 const numberValue = (value) => Number(String(value).replace(',', '.')) || 0
@@ -46,6 +48,10 @@ export function NomenclaturePage() {
         })
       ).data.data,
   })
+  const defectGroups = useQuery({
+    queryKey: ['defect-groups'],
+    queryFn: async () => (await apiClient.get('/defect-groups')).data.data,
+  })
   const saveItem = useMutation({
     mutationFn: async () =>
       (
@@ -55,6 +61,7 @@ export function NomenclaturePage() {
             name: form.name,
             unit: form.unit,
             unitPrice: String(Math.round(numberValue(form.price) * 100)),
+            defectGroupId: form.defectGroupId || null,
           },
         )
       ).data.data,
@@ -97,6 +104,7 @@ export function NomenclaturePage() {
       name: row.name,
       unit: row.unit,
       price: String(Number(row.unitPrice) / 100),
+      defectGroupId: row.defectGroupId ?? '',
     })
     setModalOpen(true)
   }
@@ -132,7 +140,12 @@ export function NomenclaturePage() {
           </div>
           {(list.data ?? []).map((row) => (
             <div className="table-row" id={`nomenclature-${row.id}`} key={row.id}>
-              <strong>{row.name}</strong>
+              <span>
+                <strong>{row.name}</strong>
+                <small className="nomenclature-defect-group">
+                  {row.defectGroup?.name || 'Все дефекты'}
+                </small>
+              </span>
               <span>{unitLabels[row.unit] || row.unit}</span>
               <strong>{money(row.unitPrice)}</strong>
               <span>
@@ -161,6 +174,8 @@ export function NomenclaturePage() {
           )}
         </div>
       </section>
+
+      <DefectGroupsPanel />
 
       {modalOpen && (
         <div
@@ -231,6 +246,28 @@ export function NomenclaturePage() {
                     </option>
                   ))}
                 </select>
+              </label>
+              <label>
+                Группа дефектов при приёмке
+                <select
+                  value={form.defectGroupId}
+                  onChange={(event) =>
+                    setForm((value) => ({
+                      ...value,
+                      defectGroupId: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Общий список — все дефекты</option>
+                  {(defectGroups.data ?? []).map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  В заказе приёмщик увидит только дефекты из выбранной группы.
+                </small>
               </label>
 
               {form.unit === 'square_meter' && (

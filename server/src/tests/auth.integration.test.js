@@ -288,6 +288,14 @@ integration('auth API with PostgreSQL', () => {
       where: { organizationId: ids.organization },
       force: true,
     })
+    await models.OrderItemDefect.destroy({
+      where: { organizationId: ids.organization },
+      force: true,
+    })
+    await models.OrderItemContamination.destroy({
+      where: { organizationId: ids.organization },
+      force: true,
+    })
     await models.OrderItem.destroy({
       where: { organizationId: ids.organization },
       force: true,
@@ -297,6 +305,18 @@ integration('auth API with PostgreSQL', () => {
       force: true,
     })
     await models.NomenclatureItem.destroy({
+      where: { organizationId: ids.organization },
+      force: true,
+    })
+    await models.DefectGroupDefect.destroy({
+      where: { organizationId: ids.organization },
+      force: true,
+    })
+    await models.DefectGroup.destroy({
+      where: { organizationId: ids.organization },
+      force: true,
+    })
+    await models.Defect.destroy({
       where: { organizationId: ids.organization },
       force: true,
     })
@@ -998,6 +1018,77 @@ integration('auth API with PostgreSQL', () => {
       .set('Authorization', authorization)
       .expect(200)
     expect(audit.body.data.some(({ action }) => action === 'order.issued')).toBe(true)
+  })
+
+  it('limits reception defects to the nomenclature defect group', async () => {
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(200)
+    const authorization = `Bearer ${login.body.data.accessToken}`
+    const tear = await request(app)
+      .post('/api/v1/catalog/defects')
+      .set('Authorization', authorization)
+      .send({ code: `TEAR-${suffix}`, name: 'Порыв' })
+      .expect(201)
+    const zipper = await request(app)
+      .post('/api/v1/catalog/defects')
+      .set('Authorization', authorization)
+      .send({ code: `ZIPPER-${suffix}`, name: 'Повреждена молния' })
+      .expect(201)
+    const group = await request(app)
+      .post('/api/v1/defect-groups')
+      .set('Authorization', authorization)
+      .send({
+        name: `Ковры ${suffix}`,
+        defectIds: [tear.body.data.id],
+      })
+      .expect(201)
+    expect(group.body.data.defects.map(({ id }) => id)).toEqual([tear.body.data.id])
+
+    const position = await request(app)
+      .post('/api/v1/nomenclature')
+      .set('Authorization', authorization)
+      .send({
+        name: `Integration carpet ${suffix}`,
+        unit: 'square_meter',
+        unitPrice: '59000',
+        defectGroupId: group.body.data.id,
+      })
+      .expect(201)
+    expect(position.body.data.defectGroup.defects[0].name).toBe('Порыв')
+
+    const client = await sequelize.models.Client.findOne({
+      where: { organizationId: ids.organization },
+    })
+    const order = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', authorization)
+      .send({
+        branchId: ids.branch,
+        acceptanceLocationId: ids.location,
+        clientId: client.id,
+      })
+      .expect(201)
+    await request(app)
+      .post(`/api/v1/orders/${order.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({
+        nomenclatureItemId: position.body.data.id,
+        defectIds: [zipper.body.data.id],
+      })
+      .expect(422)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('ORDER_ITEM_DEFECT_NOT_ALLOWED')
+      })
+    await request(app)
+      .post(`/api/v1/orders/${order.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({
+        nomenclatureItemId: position.body.data.id,
+        defectIds: [tear.body.data.id],
+      })
+      .expect(201)
   })
 
   it('calculates a square-meter nomenclature position inside an order', async () => {

@@ -17,6 +17,7 @@ import { createPaymentsRouter } from './modules/payments/payments.routes.js'
 import { createProductionRouter } from './modules/production/production.routes.js'
 import { createIssuesRouter } from './modules/issues/issues.routes.js'
 import { createNomenclatureRouter } from './modules/nomenclature/nomenclature.routes.js'
+import { createDefectGroupsRouter } from './modules/defect-groups/defect-groups.routes.js'
 import { createReportsRouter } from './modules/reports/reports.routes.js'
 import { createSystemRouter } from './modules/system/system.routes.js'
 
@@ -50,6 +51,7 @@ export function createApp({ environment, logger, readyCheck, sequelize, env }) {
     app.use('/api/v1/clients', createClientsRouter({ sequelize, env }))
     app.use('/api/v1/catalog', createCatalogRouter({ sequelize, env }))
     app.use('/api/v1/nomenclature', createNomenclatureRouter({ sequelize, env }))
+    app.use('/api/v1/defect-groups', createDefectGroupsRouter({ sequelize, env }))
     app.use('/api/v1/services', createServicesRouter({ sequelize, env }))
     app.use('/api/v1/price-lists', createPriceListsRouter({ sequelize, env }))
     const ordersRouter = createOrdersRouter({ sequelize, env })

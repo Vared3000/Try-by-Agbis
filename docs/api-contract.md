@@ -15,6 +15,8 @@
 | GET/PATCH | `/clients/{id}`                  | карточка и изменение          | `clients.*`                   |
 | GET       | `/clients/{id}/orders`           | история заказов клиента       | `clients.view`, `orders.view` |
 | GET       | `/catalog/*`                     | справочники                   | `catalog.view`                |
+| GET/POST  | `/defect-groups`                 | группы подходящих дефектов    | `catalog.*`                   |
+| PATCH/DELETE | `/defect-groups/{id}`          | изменить/архивировать группу  | `catalog.manage`              |
 | GET       | `/services`                      | доступные услуги              | `catalog.view`                |
 | GET/POST  | `/price-lists`                   | прайс-листы                   | `price_lists.manage`          |
 | GET/POST  | `/orders`                        | список и черновик             | `orders.*`                    |

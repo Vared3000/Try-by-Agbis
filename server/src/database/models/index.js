@@ -54,6 +54,20 @@ function associate(models) {
   belongsTo('PriceListItem', 'PriceList', 'priceListId', 'priceList')
   belongsTo('PriceListItem', 'Service', 'serviceId', 'service')
   belongsTo('PriceListItem', 'GarmentType', 'garmentTypeId', 'garmentType')
+  belongsTo('NomenclatureItem', 'DefectGroup', 'defectGroupId', 'defectGroup')
+  hasMany('DefectGroup', 'NomenclatureItem', 'defectGroupId', 'nomenclatureItems')
+  models.DefectGroup.belongsToMany(models.Defect, {
+    through: models.DefectGroupDefect,
+    foreignKey: 'defectGroupId',
+    otherKey: 'defectId',
+    as: 'defects',
+  })
+  models.Defect.belongsToMany(models.DefectGroup, {
+    through: models.DefectGroupDefect,
+    foreignKey: 'defectId',
+    otherKey: 'defectGroupId',
+    as: 'defectGroups',
+  })
 
   hasMany('ProductionRoute', 'ProductionRouteStage', 'routeId', 'stages')
   belongsTo('ProductionRouteStage', 'ProductionRoute', 'routeId', 'route')

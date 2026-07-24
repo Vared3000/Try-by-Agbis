@@ -138,6 +138,22 @@
         "responses": { "200": { "description": "Nomenclature item archived" } }
       }
     },
+    "/defect-groups": {
+      "get": { "responses": { "200": { "description": "Defect groups with assigned defects" } } },
+      "post": { "responses": { "201": { "description": "Defect group created" } } }
+    },
+    "/defect-groups/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string", "format": "uuid" }
+        }
+      ],
+      "patch": { "responses": { "200": { "description": "Defect group updated" } } },
+      "delete": { "responses": { "200": { "description": "Defect group archived" } } }
+    },
     "/price-lists": {
       "get": { "responses": { "200": { "description": "Price lists" } } },
       "post": { "responses": { "201": { "description": "Price list created" } } }

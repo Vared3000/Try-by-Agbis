@@ -22,6 +22,7 @@ const createInput = z.object({
   name: z.string().trim().min(2).max(255),
   unit: z.enum(units),
   unitPrice: moneyValue,
+  defectGroupId: z.string().uuid().nullable().optional(),
 })
 
 const updateInput = createInput
@@ -48,8 +49,43 @@ export function createNomenclatureRouter({ sequelize, env }) {
   const authenticate = createAuthenticate({
     authService: createAuthService({ sequelize, env }),
   })
-  const { NomenclatureItem } = sequelize.models
+  const { NomenclatureItem, DefectGroup, Defect } = sequelize.models
   router.use(authenticate)
+  const groupInclude = {
+    model: DefectGroup,
+    as: 'defectGroup',
+    required: false,
+    where: { archivedAt: null },
+    include: [
+      {
+        model: Defect,
+        as: 'defects',
+        required: false,
+        through: { attributes: [] },
+        where: { archivedAt: null },
+      },
+    ],
+  }
+
+  const validateGroup = async (defectGroupId, organizationId, transaction) => {
+    if (!defectGroupId) return null
+    const group = await DefectGroup.findOne({
+      where: {
+        id: defectGroupId,
+        organizationId,
+        archivedAt: null,
+      },
+      transaction,
+    })
+    if (!group) {
+      throw new ApiError({
+        status: 422,
+        code: 'NOMENCLATURE_DEFECT_GROUP_INVALID',
+        message: 'Выбранная группа дефектов недоступна',
+      })
+    }
+    return group.id
+  }
 
   router.get('/', requirePermission('catalog.view'), async (req, res) => {
     const search = String(req.query.search ?? '').trim()
@@ -59,6 +95,7 @@ export function createNomenclatureRouter({ sequelize, env }) {
         archivedAt: null,
         ...(search ? { name: { [Op.iLike]: `%${search}%` } } : {}),
       },
+      include: [groupInclude],
       order: [
         ['name', 'ASC'],
         ['id', 'ASC'],
@@ -69,14 +106,22 @@ export function createNomenclatureRouter({ sequelize, env }) {
 
   router.post('/', requirePermission('catalog.manage'), async (req, res) => {
     const input = createInput.parse(req.body)
+    const defectGroupId = await validateGroup(
+      input.defectGroupId,
+      req.auth.organizationId,
+    )
     const row = await NomenclatureItem.create({
       organizationId: req.auth.organizationId,
       ...input,
+      defectGroupId,
       calculationType: calculationTypes[input.unit],
       currency: 'RUB',
       version: 0,
     })
-    res.status(201).json(success(row, req.correlationId))
+    const created = await NomenclatureItem.findByPk(row.id, {
+      include: [groupInclude],
+    })
+    res.status(201).json(success(created, req.correlationId))
   })
 
   router.patch('/:id', requirePermission('catalog.manage'), async (req, res) => {
@@ -89,12 +134,18 @@ export function createNomenclatureRouter({ sequelize, env }) {
       },
     })
     if (!row) throw missing()
+    if (Object.hasOwn(input, 'defectGroupId')) {
+      await validateGroup(input.defectGroupId, req.auth.organizationId)
+    }
     await row.update({
       ...input,
       ...(input.unit ? { calculationType: calculationTypes[input.unit] } : {}),
       version: row.version + 1,
     })
-    res.json(success(row, req.correlationId))
+    const updated = await NomenclatureItem.findByPk(row.id, {
+      include: [groupInclude],
+    })
+    res.json(success(updated, req.correlationId))
   })
 
   router.delete('/:id', requirePermission('catalog.manage'), async (req, res) => {
