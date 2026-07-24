@@ -60,7 +60,6 @@ export function ClientsPage({ onUseClient }) {
       </div>
       {createOpen && (
         <ClientPickerModal
-          createOnly
           onClose={() => setCreateOpen(false)}
           onSelect={(client) => {
             queryClient.invalidateQueries({ queryKey: ['clients-page'] })

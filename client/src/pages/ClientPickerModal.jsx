@@ -5,12 +5,13 @@ import { apiClient } from '../api/client.js'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { apiError } from './workspace-utils.js'
 
-export function ClientPickerModal({ onClose, onSelect, createOnly = false }) {
+export function ClientPickerModal({ onClose, onSelect }) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
-  const [creating, setCreating] = useState(createOnly)
+  const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ fullName: '', phone: '', email: '' })
   const deferredSearch = useDebouncedValue(search.trim())
+  const normalizedSearch = search.trim()
   const clients = useQuery({
     queryKey: ['client-picker', deferredSearch],
     queryFn: async () =>
@@ -19,7 +20,13 @@ export function ClientPickerModal({ onClose, onSelect, createOnly = false }) {
           params: { search: deferredSearch || undefined, pageSize: 50 },
         })
       ).data.data,
+    enabled: deferredSearch.length >= 2,
   })
+  const searchReady =
+    normalizedSearch.length >= 2 &&
+    normalizedSearch === deferredSearch &&
+    clients.isSuccess &&
+    !clients.isFetching
   const createClient = useMutation({
     mutationFn: async () =>
       (
@@ -63,9 +70,7 @@ export function ClientPickerModal({ onClose, onSelect, createOnly = false }) {
         <div className="modal-head">
           <div>
             <p className="eyebrow">Заказ</p>
-            <h2 id="client-picker-title">
-              {createOnly ? 'Новый клиент' : 'Выбор клиента'}
-            </h2>
+            <h2 id="client-picker-title">Выбор клиента</h2>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Закрыть">
             ×
@@ -84,6 +89,11 @@ export function ClientPickerModal({ onClose, onSelect, createOnly = false }) {
               />
             </label>
             <div className="picker-results">
+              {normalizedSearch.length < 2 && (
+                <div className="empty-state compact">
+                  Введите минимум 2 символа имени или телефона.
+                </div>
+              )}
               {(clients.data ?? []).map((client) => (
                 <button
                   key={client.id}
@@ -106,17 +116,39 @@ export function ClientPickerModal({ onClose, onSelect, createOnly = false }) {
                   <b>Выбрать</b>
                 </button>
               ))}
-              {clients.isPending && (
+              {normalizedSearch.length >= 2 && !searchReady && !clients.isError && (
                 <div className="empty-state compact">Ищем клиентов…</div>
               )}
-              {!clients.isPending && !clients.data?.length && (
+              {clients.isError && (
+                <div className="empty-state compact">
+                  <span>Не удалось проверить клиентскую базу.</span>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => clients.refetch()}
+                  >
+                    Повторить поиск
+                  </button>
+                </div>
+              )}
+              {searchReady && !clients.data?.length && (
                 <div className="empty-state compact">
                   Клиент не найден. Создайте новую карточку.
                 </div>
               )}
             </div>
-            <button className="primary-button" onClick={startCreating}>
-              + Создать нового клиента
+            <button
+              className="primary-button"
+              disabled={!searchReady}
+              onClick={startCreating}
+            >
+              {normalizedSearch.length < 2
+                ? 'Сначала найдите клиента'
+                : clients.isError
+                  ? 'Поиск временно недоступен'
+                  : !searchReady
+                    ? 'Проверяем совпадения…'
+                    : `+ Создать «${normalizedSearch}»`}
             </button>
           </>
         ) : (
@@ -127,15 +159,13 @@ export function ClientPickerModal({ onClose, onSelect, createOnly = false }) {
               createClient.mutate()
             }}
           >
-            {!createOnly && (
-              <button
-                type="button"
-                className="text-button back-button"
-                onClick={() => setCreating(false)}
-              >
-                ← Назад к поиску
-              </button>
-            )}
+            <button
+              type="button"
+              className="text-button back-button"
+              onClick={() => setCreating(false)}
+            >
+              ← Назад к поиску
+            </button>
             <label>
               ФИО или название
               <input
@@ -175,7 +205,7 @@ export function ClientPickerModal({ onClose, onSelect, createOnly = false }) {
               <button
                 type="button"
                 className="secondary-button"
-                onClick={() => (createOnly ? onClose() : setCreating(false))}
+                onClick={() => setCreating(false)}
               >
                 Отмена
               </button>

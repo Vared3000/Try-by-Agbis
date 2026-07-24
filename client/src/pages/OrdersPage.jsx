@@ -1,16 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
+import {
+  ChoiceChecks,
+  ItemPhotos,
+  ServiceAdder,
+} from '../features/orders/OrderItemControls.jsx'
+import { OrderCreatePanel } from '../features/orders/OrderCreatePanel.jsx'
+import { OrderListPanel } from '../features/orders/OrderListPanel.jsx'
+import { OrderMetaEditor } from '../features/orders/OrderMetaEditor.jsx'
+import { useOrderHotkeys } from '../features/orders/useOrderHotkeys.js'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
 import { apiError, money, openApiDocument, orderStatusLabel } from './workspace-utils.js'
 
 const findName = (rows, id) => rows?.find((row) => row.id === id)?.name
+const finalOrderStatuses = new Set(['issued', 'cancelled'])
 
 export function OrdersPage() {
   const queryClient = useQueryClient()
+  const itemSelectRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
   const selectedOrderId = location.pathname.match(/^\/orders\/([^/]+)$/)?.[1] || ''
@@ -54,8 +65,8 @@ export function OrdersPage() {
   })
   const orders = useQuery({
     queryKey: ['orders', debouncedOrderSearch, orderStatus],
-    queryFn: async () =>
-      (
+    queryFn: async () => {
+      const rows = (
         await apiClient.get('/orders', {
           params: {
             pageSize: 100,
@@ -63,7 +74,16 @@ export function OrdersPage() {
             status: orderStatus || undefined,
           },
         })
-      ).data.data,
+      ).data.data
+      const loadedAt = Date.now()
+      return rows.map((row) => ({
+        ...row,
+        isOverdue:
+          Boolean(row.dueAt) &&
+          !finalOrderStatuses.has(row.status) &&
+          new Date(row.dueAt).getTime() < loadedAt,
+      }))
+    },
   })
   const garments = useQuery({
     queryKey: ['catalog', 'garment-types'],
@@ -219,6 +239,26 @@ export function OrdersPage() {
       setActionError(apiError(error))
     }
   }
+  const canAcceptOrder =
+    order.data?.status === 'draft' &&
+    Boolean(order.data.items?.length) &&
+    !order.data.items.some((item) => !item.nomenclatureItemId && !item.services?.length)
+  useOrderHotkeys({
+    onNewOrder: () => navigate('/orders'),
+    onAddItem: () => {
+      itemSelectRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+      itemSelectRef.current?.focus()
+    },
+    onAcceptOrder: () => acceptOrder.mutate(),
+    onPrintReceipt: () =>
+      openDocument(`/orders/${selectedOrderId}/receipt`, 'text/html;charset=utf-8'),
+    canAddItem: order.data?.status === 'draft',
+    canAcceptOrder,
+    canPrintReceipt: Boolean(selectedOrderId),
+  })
 
   return (
     <div className="stack">
@@ -230,124 +270,27 @@ export function OrdersPage() {
           </div>
           {selectedOrderId && (
             <button className="secondary-button" onClick={() => setSelectedOrderId('')}>
-              Новый черновик
+              Новый черновик <kbd>F2</kbd>
             </button>
           )}
         </div>
 
         {!selectedOrderId ? (
-          <div className="order-create-card">
-            <form
-              className="form-grid"
-              onSubmit={(event) => {
-                event.preventDefault()
-                createOrder.mutate()
-              }}
-            >
-              <div className="client-selection field-wide">
-                {selectedClient ? (
-                  <div>
-                    <span className="avatar">
-                      {selectedClient.fullName.slice(0, 1).toUpperCase()}
-                    </span>
-                    <span>
-                      <small>Клиент заказа</small>
-                      <strong>{selectedClient.fullName}</strong>
-                      <em>
-                        {selectedClient.phone ||
-                          selectedClient.email ||
-                          'Контакты не указаны'}
-                      </em>
-                    </span>
-                  </div>
-                ) : (
-                  <div>
-                    <span className="client-placeholder">◎</span>
-                    <span>
-                      <small>Клиент не выбран</small>
-                      <strong>Найдите или создайте клиента</strong>
-                    </span>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setClientPickerOpen(true)}
-                >
-                  {selectedClient ? 'Сменить клиента' : 'Выбрать клиента'}
-                </button>
-              </div>
-              <label>
-                Филиал
-                <select
-                  required
-                  value={effectiveBranchId}
-                  onChange={(event) =>
-                    setOrderForm((value) => ({
-                      ...value,
-                      branchId: event.target.value,
-                      acceptanceLocationId: '',
-                    }))
-                  }
-                >
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Точка приёмки
-                <select
-                  required
-                  value={effectiveLocationId}
-                  onChange={(event) =>
-                    setOrderForm((value) => ({
-                      ...value,
-                      acceptanceLocationId: event.target.value,
-                    }))
-                  }
-                >
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Срок готовности
-                <input
-                  type="datetime-local"
-                  value={orderForm.dueAt}
-                  onChange={(event) =>
-                    setOrderForm((value) => ({ ...value, dueAt: event.target.value }))
-                  }
-                />
-              </label>
-              <label>
-                Комментарий
-                <input
-                  value={orderForm.notes}
-                  onChange={(event) =>
-                    setOrderForm((value) => ({ ...value, notes: event.target.value }))
-                  }
-                />
-              </label>
-              {createOrder.error && (
-                <p className="form-error field-wide">{apiError(createOrder.error)}</p>
-              )}
-              <button
-                className="primary-button field-wide"
-                disabled={
-                  !orderForm.clientId || !effectiveLocationId || createOrder.isPending
-                }
-              >
-                Создать черновик заказа
-              </button>
-            </form>
-          </div>
+          <OrderCreatePanel
+            branches={branches}
+            effectiveBranchId={effectiveBranchId}
+            effectiveLocationId={effectiveLocationId}
+            errorMessage={createOrder.error ? apiError(createOrder.error) : ''}
+            form={orderForm}
+            isPending={createOrder.isPending}
+            locations={locations}
+            onChooseClient={() => setClientPickerOpen(true)}
+            onFormChange={(changes) =>
+              setOrderForm((value) => ({ ...value, ...changes }))
+            }
+            onSubmit={() => createOrder.mutate()}
+            selectedClient={selectedClient}
+          />
         ) : (
           <OrderEditor
             key={selectedOrderId}
@@ -360,6 +303,7 @@ export function OrdersPage() {
             defects={defects.data ?? []}
             contaminations={contaminations.data ?? []}
             prices={prices.data?.items ?? []}
+            itemSelectRef={itemSelectRef}
             itemForm={itemForm}
             setItemForm={setItemForm}
             addItem={addItem}
@@ -378,49 +322,16 @@ export function OrdersPage() {
         )}
       </section>
 
-      <section className="panel">
-        <div className="panel-title">
-          <h2>Заказы</h2>
-          <span>{orders.data?.length ?? 0} записей</span>
-        </div>
-        <div className="orders-toolbar">
-          <input
-            value={orderSearch}
-            onChange={(event) => setOrderSearch(event.target.value)}
-            placeholder="Номер заказа, клиент или телефон"
-          />
-          <select
-            value={orderStatus}
-            onChange={(event) => setOrderStatus(event.target.value)}
-          >
-            <option value="">Все статусы</option>
-            <option value="draft">Черновики</option>
-            <option value="accepted">Приняты</option>
-            <option value="in_progress">В работе</option>
-            <option value="ready">Готовы</option>
-            <option value="issued">Выданы</option>
-            <option value="cancelled">Отменены</option>
-          </select>
-        </div>
-        <div className="data-list clickable-list">
-          {(orders.data ?? []).map((row) => (
-            <article key={row.id} onClick={() => setSelectedOrderId(row.id)}>
-              <div>
-                <strong>{row.displayNumber}</strong>
-                <span>
-                  {row.client?.fullName || 'Клиент'}{' '}
-                  {row.client?.phone ? `· ${row.client.phone}` : ''}
-                </span>
-                <span>{new Date(row.createdAt).toLocaleString('ru-RU')}</span>
-              </div>
-              <div className="row-end">
-                <strong>{money(row.totalAmount)}</strong>
-                <span className="status-pill">{orderStatusLabel(row.status)}</span>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      <OrderListPanel
+        orders={orders.data ?? []}
+        loading={orders.isPending}
+        search={orderSearch}
+        status={orderStatus}
+        selectedOrderId={selectedOrderId}
+        onSearchChange={setOrderSearch}
+        onStatusChange={setOrderStatus}
+        onOpenOrder={setSelectedOrderId}
+      />
       {clientPickerOpen && (
         <ClientPickerModal
           onClose={() => setClientPickerOpen(false)}
@@ -447,6 +358,7 @@ function OrderEditor({
   defects,
   contaminations,
   prices,
+  itemSelectRef,
   itemForm,
   setItemForm,
   addItem,
@@ -519,6 +431,7 @@ function OrderEditor({
             <label className="field-wide">
               Позиция номенклатуры
               <select
+                ref={itemSelectRef}
                 required
                 value={itemForm.nomenclatureItemId}
                 onChange={(event) =>
@@ -703,7 +616,9 @@ function OrderEditor({
               </strong>
             </div>
           )}
-          <button className="primary-button">Добавить позицию в заказ</button>
+          <button className="primary-button">
+            Добавить позицию в заказ <kbd>F4</kbd>
+          </button>
           {addItem.error && <p className="form-error">{apiError(addItem.error)}</p>}
         </form>
       )}
@@ -723,6 +638,19 @@ function OrderEditor({
                   {[findName(materials, item.materialId), findName(colors, item.colorId)]
                     .filter(Boolean)
                     .join(' · ')}
+                </small>
+                <small>
+                  {item.area
+                    ? `${item.area} м²`
+                    : item.quantity
+                      ? `${item.quantity} ${
+                          {
+                            piece: 'шт.',
+                            linear_meter: 'пог. м',
+                            kilogram: 'кг',
+                          }[item.nomenclature?.unit] || ''
+                        }`
+                      : ''}
                 </small>
               </div>
               <strong>{money(item.totalAmount)}</strong>
@@ -744,54 +672,74 @@ function OrderEditor({
                 Выдать эту позицию
               </label>
             )}
-            {item.description && <p>{item.description}</p>}
-            {item.nomenclature && (
-              <div className="item-measurements">
-                {item.area && <span>{item.area} м²</span>}
-                {!item.area && item.quantity && (
-                  <span>
-                    {item.quantity}{' '}
-                    {{
-                      piece: 'шт.',
-                      linear_meter: 'пог. м',
-                      kilogram: 'кг',
-                    }[item.nomenclature.unit] || ''}
-                  </span>
+            <details
+              className="order-item-details"
+              open={editable && !item.nomenclatureItemId ? true : undefined}
+            >
+              <summary>
+                <span>Детали позиции</span>
+                <small>
+                  {[
+                    item.defects?.length && `${item.defects.length} деф.`,
+                    item.contaminations?.length &&
+                      `${item.contaminations.length} загрязн.`,
+                    item.files?.length && `${item.files.length} фото`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Размеры, услуги и фотографии'}
+                </small>
+              </summary>
+              <div className="order-item-details-content">
+                {item.description && <p>{item.description}</p>}
+                {item.nomenclature && (
+                  <div className="item-measurements">
+                    {item.area && <span>{item.area} м²</span>}
+                    {!item.area && item.quantity && (
+                      <span>
+                        {item.quantity}{' '}
+                        {{
+                          piece: 'шт.',
+                          linear_meter: 'пог. м',
+                          kilogram: 'кг',
+                        }[item.nomenclature.unit] || ''}
+                      </span>
+                    )}
+                    {item.length && item.width && (
+                      <span>
+                        {item.length} × {item.width} м
+                      </span>
+                    )}
+                    <span>{money(item.unitPrice)} за единицу</span>
+                  </div>
                 )}
-                {item.length && item.width && (
-                  <span>
-                    {item.length} × {item.width} м
-                  </span>
+                {!!item.defects?.length && (
+                  <div className="item-flags">
+                    <strong>Дефекты:</strong>{' '}
+                    {item.defects.map((row) => row.defect?.name).join(', ')}
+                  </div>
                 )}
-                <span>{money(item.unitPrice)} за единицу</span>
-              </div>
-            )}
-            {!!item.defects?.length && (
-              <div className="item-flags">
-                <strong>Дефекты:</strong>{' '}
-                {item.defects.map((row) => row.defect?.name).join(', ')}
-              </div>
-            )}
-            {!!item.contaminations?.length && (
-              <div className="item-flags">
-                <strong>Загрязнения:</strong>{' '}
-                {item.contaminations.map((row) => row.contamination?.name).join(', ')}
-              </div>
-            )}
-            <div className="service-lines">
-              {(item.services ?? []).map((service) => (
-                <div key={service.id}>
-                  <span>
-                    {service.serviceName} × {service.quantity}
-                  </span>
-                  <strong>{money(service.totalPrice)}</strong>
+                {!!item.contaminations?.length && (
+                  <div className="item-flags">
+                    <strong>Загрязнения:</strong>{' '}
+                    {item.contaminations.map((row) => row.contamination?.name).join(', ')}
+                  </div>
+                )}
+                <div className="service-lines">
+                  {(item.services ?? []).map((service) => (
+                    <div key={service.id}>
+                      <span>
+                        {service.serviceName} × {service.quantity}
+                      </span>
+                      <strong>{money(service.totalPrice)}</strong>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <ItemPhotos item={item} editable={editable} onChanged={onChanged} />
-            {editable && !item.nomenclatureItemId && (
-              <ServiceAdder item={item} prices={prices} onChanged={onChanged} />
-            )}
+                <ItemPhotos item={item} editable={editable} onChanged={onChanged} />
+                {editable && !item.nomenclatureItemId && (
+                  <ServiceAdder item={item} prices={prices} onChanged={onChanged} />
+                )}
+              </div>
+            </details>
             <button
               className="text-button"
               onClick={() =>
@@ -871,7 +819,7 @@ function OrderEditor({
             }
             onClick={() => acceptOrder.mutate()}
           >
-            Принять заказ
+            Принять заказ <kbd>Ctrl+Enter</kbd>
           </button>
         )}
         <button
@@ -880,7 +828,7 @@ function OrderEditor({
             onOpenDocument(`/orders/${order.id}/receipt`, 'text/html;charset=utf-8')
           }
         >
-          Печать квитанции
+          Печать квитанции <kbd>F8</kbd>
         </button>
         <button
           className="secondary-button"
@@ -914,287 +862,5 @@ function OrderEditor({
         />
       )}
     </div>
-  )
-}
-
-function OrderMetaEditor({ order, updateOrder, onClose }) {
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [form, setForm] = useState({
-    clientId: order.clientId,
-    client: order.client,
-    dueAt: order.dueAt ? new Date(order.dueAt).toLocaleString('sv-SE').slice(0, 16) : '',
-    notes: order.notes || '',
-  })
-
-  return (
-    <>
-      <div
-        className="modal-backdrop"
-        role="presentation"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) onClose()
-        }}
-      >
-        <section
-          className="modal-card"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="order-meta-title"
-        >
-          <div className="modal-head">
-            <div>
-              <p className="eyebrow">Черновик {order.displayNumber}</p>
-              <h2 id="order-meta-title">Реквизиты заказа</h2>
-            </div>
-            <button className="modal-close" onClick={onClose} aria-label="Закрыть">
-              ×
-            </button>
-          </div>
-          <form
-            className="modal-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              updateOrder.mutate(
-                {
-                  clientId: form.clientId,
-                  dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : null,
-                  notes: form.notes || null,
-                },
-                { onSuccess: onClose },
-              )
-            }}
-          >
-            <div className="client-selection">
-              <div>
-                <span className="avatar">
-                  {form.client?.fullName?.slice(0, 1).toUpperCase()}
-                </span>
-                <span>
-                  <small>Клиент заказа</small>
-                  <strong>{form.client?.fullName}</strong>
-                  <em>{form.client?.phone || 'Телефон не указан'}</em>
-                </span>
-              </div>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setPickerOpen(true)}
-              >
-                Сменить клиента
-              </button>
-            </div>
-            <label>
-              Срок готовности
-              <input
-                type="datetime-local"
-                value={form.dueAt}
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, dueAt: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              Комментарий
-              <textarea
-                rows="4"
-                maxLength="5000"
-                value={form.notes}
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, notes: event.target.value }))
-                }
-              />
-            </label>
-            {updateOrder.error && (
-              <p className="form-error">{apiError(updateOrder.error)}</p>
-            )}
-            <div className="modal-actions">
-              <button type="button" className="secondary-button" onClick={onClose}>
-                Отмена
-              </button>
-              <button className="primary-button" disabled={updateOrder.isPending}>
-                Сохранить изменения
-              </button>
-            </div>
-          </form>
-        </section>
-      </div>
-      {pickerOpen && (
-        <ClientPickerModal
-          onClose={() => setPickerOpen(false)}
-          onSelect={(client) =>
-            setForm((value) => ({
-              ...value,
-              clientId: client.id,
-              client,
-            }))
-          }
-        />
-      )}
-    </>
-  )
-}
-
-function ItemPhotos({ item, editable, onChanged }) {
-  const upload = useMutation({
-    mutationFn: (file) => {
-      const formData = new FormData()
-      formData.append('orderItemId', item.id)
-      formData.append('file', file)
-      return apiClient.post('/files', formData)
-    },
-    onSuccess: onChanged,
-  })
-  const remove = useMutation({
-    mutationFn: (fileId) => apiClient.delete(`/files/${fileId}`),
-    onSuccess: onChanged,
-  })
-
-  return (
-    <div className="item-photos">
-      <div className="item-photos-head">
-        <strong>Фотографии</strong>
-        <span>{item.files?.length ?? 0}</span>
-      </div>
-      <div className="photo-grid">
-        {(item.files ?? []).map((file) => (
-          <div key={file.id} className="photo-card">
-            <ProtectedImage file={file} />
-            <small title={file.originalName}>{file.originalName}</small>
-            {editable && (
-              <button
-                className="text-button danger"
-                disabled={remove.isPending}
-                onClick={() => remove.mutate(file.id)}
-              >
-                Удалить
-              </button>
-            )}
-          </div>
-        ))}
-        {editable && (
-          <label className="photo-upload">
-            <span>＋</span>
-            Добавить фото
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              disabled={upload.isPending}
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) upload.mutate(file)
-                event.target.value = ''
-              }}
-            />
-          </label>
-        )}
-      </div>
-      {upload.error && <p className="form-error">{apiError(upload.error)}</p>}
-      {remove.error && <p className="form-error">{apiError(remove.error)}</p>}
-    </div>
-  )
-}
-
-function ProtectedImage({ file }) {
-  const [source, setSource] = useState('')
-  useEffect(() => {
-    let active = true
-    let objectUrl = ''
-    apiClient
-      .get(`/files/${file.id}`, { responseType: 'blob' })
-      .then((response) => {
-        objectUrl = URL.createObjectURL(response.data)
-        if (active) setSource(objectUrl)
-      })
-      .catch(() => {})
-    return () => {
-      active = false
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [file.id])
-
-  return source ? (
-    <img src={source} alt={file.originalName} />
-  ) : (
-    <span className="photo-loading">Фото</span>
-  )
-}
-
-function ChoiceChecks({ title, rows, selected, onChange }) {
-  return (
-    <fieldset className="choice-checks">
-      <legend>{title}</legend>
-      <div>
-        {rows.map((row) => (
-          <label key={row.id}>
-            <input
-              type="checkbox"
-              checked={selected.includes(row.id)}
-              onChange={() =>
-                onChange(
-                  selected.includes(row.id)
-                    ? selected.filter((id) => id !== row.id)
-                    : [...selected, row.id],
-                )
-              }
-            />
-            {row.name}
-          </label>
-        ))}
-      </div>
-    </fieldset>
-  )
-}
-
-function ServiceAdder({ item, prices, onChanged }) {
-  const [serviceId, setServiceId] = useState('')
-  const [quantity, setQuantity] = useState('1')
-  const options = prices.filter((price) => price.garmentTypeId === item.garmentTypeId)
-  const addService = useMutation({
-    mutationFn: () =>
-      apiClient.post(`/orders/items/${item.id}/services`, {
-        serviceId,
-        quantity,
-      }),
-    onSuccess: () => {
-      setServiceId('')
-      setQuantity('1')
-      onChanged()
-    },
-  })
-
-  return (
-    <form
-      className="service-adder"
-      onSubmit={(event) => {
-        event.preventDefault()
-        addService.mutate()
-      }}
-    >
-      <select
-        required
-        value={serviceId}
-        onChange={(event) => setServiceId(event.target.value)}
-      >
-        <option value="">Выберите услугу</option>
-        {options.map((price) => (
-          <option key={price.id} value={price.serviceId}>
-            {price.service?.name} — {money(price.price)}
-          </option>
-        ))}
-      </select>
-      <input
-        required
-        min="0.001"
-        step="0.001"
-        type="number"
-        value={quantity}
-        onChange={(event) => setQuantity(event.target.value)}
-      />
-      <button className="secondary-button">Добавить услугу</button>
-      {!options.length && (
-        <small className="form-hint">Для изделия нет цены в активном прайсе</small>
-      )}
-      {addService.error && <p className="form-error">{apiError(addService.error)}</p>}
-    </form>
   )
 }
