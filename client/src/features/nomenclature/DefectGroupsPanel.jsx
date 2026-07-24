@@ -11,6 +11,7 @@ export function DefectGroupsPanel() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState('')
   const [form, setForm] = useState(emptyForm)
+  const [newDefectName, setNewDefectName] = useState('')
   const groups = useQuery({
     queryKey: ['defect-groups'],
     queryFn: async () => (await apiClient.get('/defect-groups')).data.data,
@@ -40,6 +41,30 @@ export function DefectGroupsPanel() {
       queryClient.invalidateQueries({ queryKey: ['nomenclature'] })
     },
   })
+  const createDefect = useMutation({
+    mutationFn: async ({ addToGroup }) => {
+      const response = await apiClient.post('/catalog/defects', {
+        code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}`,
+        name: newDefectName,
+      })
+      return { defect: response.data.data, addToGroup }
+    },
+    onSuccess: ({ defect, addToGroup }) => {
+      setNewDefectName('')
+      if (addToGroup) {
+        setForm((value) => ({
+          ...value,
+          defectIds: [...new Set([...value.defectIds, defect.id])],
+        }))
+      }
+      queryClient.invalidateQueries({ queryKey: ['catalog', 'defects'] })
+    },
+  })
+
+  const submitNewDefect = (addToGroup) => {
+    if (newDefectName.trim().length < 2) return
+    createDefect.mutate({ addToGroup })
+  }
 
   const openCreate = () => {
     setEditingId('')
@@ -70,6 +95,45 @@ export function DefectGroupsPanel() {
           <button className="secondary-button" type="button" onClick={openCreate}>
             + Создать группу
           </button>
+        </div>
+        <div className="defect-directory-card">
+          <div>
+            <strong>Справочник дефектов</strong>
+            <p>Добавьте формулировку, которую приёмщик увидит внутри заказа.</p>
+          </div>
+          <form
+            className="defect-create-row"
+            onSubmit={(event) => {
+              event.preventDefault()
+              submitNewDefect(false)
+            }}
+          >
+            <label>
+              Новый дефект
+              <input
+                required
+                minLength="2"
+                maxLength="255"
+                value={newDefectName}
+                onChange={(event) => setNewDefectName(event.target.value)}
+                placeholder="Например, Утеряна молния или бегунок"
+              />
+            </label>
+            <button
+              className="primary-button"
+              disabled={createDefect.isPending || newDefectName.trim().length < 2}
+            >
+              {createDefect.isPending ? 'Добавляем…' : '+ Добавить дефект'}
+            </button>
+          </form>
+          <div className="defect-directory-list">
+            {(defects.data ?? []).map((defect) => (
+              <span key={defect.id}>{defect.name}</span>
+            ))}
+          </div>
+          {createDefect.error && (
+            <p className="form-error">{apiError(createDefect.error)}</p>
+          )}
         </div>
         <div className="defect-group-grid">
           {(groups.data ?? []).map((group) => (
@@ -154,6 +218,26 @@ export function DefectGroupsPanel() {
                   placeholder="Например, Верхняя одежда"
                 />
               </label>
+              <div className="defect-create-inline">
+                <label>
+                  Добавить новый дефект в эту группу
+                  <input
+                    minLength="2"
+                    maxLength="255"
+                    value={newDefectName}
+                    onChange={(event) => setNewDefectName(event.target.value)}
+                    placeholder="Введите название дефекта"
+                  />
+                </label>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  disabled={createDefect.isPending || newDefectName.trim().length < 2}
+                  onClick={() => submitNewDefect(true)}
+                >
+                  Создать и выбрать
+                </button>
+              </div>
               <fieldset className="choice-checks">
                 <legend>Доступные дефекты</legend>
                 <div>
@@ -182,6 +266,9 @@ export function DefectGroupsPanel() {
                 </p>
               )}
               {save.error && <p className="form-error">{apiError(save.error)}</p>}
+              {createDefect.error && (
+                <p className="form-error">{apiError(createDefect.error)}</p>
+              )}
               <div className="modal-actions">
                 <button
                   className="secondary-button"
