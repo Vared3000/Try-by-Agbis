@@ -1,18 +1,34 @@
 import { useQuery } from '@tanstack/react-query'
+import { lazy, Suspense } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
 import { useAuth } from '../app/auth-context.js'
 import { ErrorBoundary } from '../components/ErrorBoundary.jsx'
 import { useFinancialReport, useOperationalReport } from '../queries/reports.js'
-import { CatalogPage } from './CatalogPage.jsx'
-import { ClientsPage } from './ClientsPage.jsx'
-import { NomenclaturePage } from './NomenclaturePage.jsx'
-import { OrdersPage } from './OrdersPage.jsx'
-import { PriceListsPage } from './PriceListsPage.jsx'
-import { ProductionPage } from './ProductionPage.jsx'
-import { TransfersPage } from './TransfersPage.jsx'
 import { money, orderStatusLabel } from './workspace-utils.js'
+
+const CatalogPage = lazy(() =>
+  import('./CatalogPage.jsx').then((m) => ({ default: m.CatalogPage })),
+)
+const ClientsPage = lazy(() =>
+  import('./ClientsPage.jsx').then((m) => ({ default: m.ClientsPage })),
+)
+const NomenclaturePage = lazy(() =>
+  import('./NomenclaturePage.jsx').then((m) => ({ default: m.NomenclaturePage })),
+)
+const OrdersPage = lazy(() =>
+  import('./OrdersPage.jsx').then((m) => ({ default: m.OrdersPage })),
+)
+const PriceListsPage = lazy(() =>
+  import('./PriceListsPage.jsx').then((m) => ({ default: m.PriceListsPage })),
+)
+const ProductionPage = lazy(() =>
+  import('./ProductionPage.jsx').then((m) => ({ default: m.ProductionPage })),
+)
+const TransfersPage = lazy(() =>
+  import('./TransfersPage.jsx').then((m) => ({ default: m.TransfersPage })),
+)
 
 const navigation = [
   ['overview', 'Обзор', '⌂'],
@@ -145,28 +161,30 @@ export function WorkspacePage() {
         )}
 
         <ErrorBoundary resetKey={section}>
-          {section === 'production' && <ProductionPage />}
-          {section === 'transfers' && <TransfersPage />}
+          <Suspense fallback={<div className="empty-state compact">Загружаем раздел…</div>}>
+            {section === 'production' && <ProductionPage />}
+            {section === 'transfers' && <TransfersPage />}
 
-          {section === 'clients' && <ClientsPage />}
-          {section === 'orders' && <OrdersPage />}
-          {section === 'nomenclature' && <NomenclaturePage />}
-          {section === 'catalog' && <CatalogPage />}
-          {section === 'pricing' && <PriceListsPage />}
-          {section === 'notifications' && (
-            <DataList section={section} data={list.data} loading={list.isPending} />
-          )}
+            {section === 'clients' && <ClientsPage />}
+            {section === 'orders' && <OrdersPage />}
+            {section === 'nomenclature' && <NomenclaturePage />}
+            {section === 'catalog' && <CatalogPage />}
+            {section === 'pricing' && <PriceListsPage />}
+            {section === 'notifications' && (
+              <DataList section={section} data={list.data} loading={list.isPending} />
+            )}
 
-          {section === 'cash' && (
-            <section className="panel empty-state">
-              <span>₽</span>
-              <h2>Кассовые операции</h2>
-              <p>
-                Открывайте смену из рабочего места приёмки. Оплаты и возвраты доступны
-                внутри карточки заказа.
-              </p>
-            </section>
-          )}
+            {section === 'cash' && (
+              <section className="panel empty-state">
+                <span>₽</span>
+                <h2>Кассовые операции</h2>
+                <p>
+                  Открывайте смену из рабочего места приёмки. Оплаты и возвраты доступны
+                  внутри карточки заказа.
+                </p>
+              </section>
+            )}
+          </Suspense>
         </ErrorBoundary>
       </main>
     </div>
