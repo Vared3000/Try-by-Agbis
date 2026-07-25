@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { apiClient } from '../api/client.js'
 import { DefectGroupsPanel } from '../features/nomenclature/DefectGroupsPanel.jsx'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
+import { useDefectGroups } from '../queries/defect-groups.js'
 import { apiError, money } from './workspace-utils.js'
 
 const units = [
@@ -50,10 +51,7 @@ export function NomenclaturePage() {
         })
       ).data.data,
   })
-  const defectGroups = useQuery({
-    queryKey: ['defect-groups'],
-    queryFn: async () => (await apiClient.get('/defect-groups')).data.data,
-  })
+  const defectGroups = useDefectGroups()
   const saveItem = useMutation({
     mutationFn: async () =>
       (

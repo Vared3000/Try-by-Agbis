@@ -1,45 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { apiClient } from '../../api/client.js'
 import { apiError } from '../../pages/workspace-utils.js'
 import { useCatalog } from '../../queries/catalog.js'
 import { useCreateCatalogEntry } from '../../mutations/catalog.js'
+import { useDefectGroups } from '../../queries/defect-groups.js'
+import { useArchiveDefectGroup, useSaveDefectGroup } from '../../mutations/defect-groups.js'
 
 const emptyForm = { name: '', defectIds: [] }
 
 export function DefectGroupsPanel({ onHide }) {
-  const queryClient = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState('')
   const [form, setForm] = useState(emptyForm)
   const [newDefectName, setNewDefectName] = useState('')
-  const groups = useQuery({
-    queryKey: ['defect-groups'],
-    queryFn: async () => (await apiClient.get('/defect-groups')).data.data,
-  })
+  const groups = useDefectGroups()
   const defects = useCatalog('defects')
-  const save = useMutation({
-    mutationFn: () =>
-      apiClient[editingId ? 'patch' : 'post'](
-        editingId ? `/defect-groups/${editingId}` : '/defect-groups',
-        form,
-      ),
-    onSuccess: () => {
-      setModalOpen(false)
-      setEditingId('')
-      setForm(emptyForm)
-      queryClient.invalidateQueries({ queryKey: ['defect-groups'] })
-      queryClient.invalidateQueries({ queryKey: ['nomenclature'] })
-    },
-  })
-  const archive = useMutation({
-    mutationFn: (id) => apiClient.delete(`/defect-groups/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['defect-groups'] })
-      queryClient.invalidateQueries({ queryKey: ['nomenclature'] })
-    },
-  })
+  const save = useSaveDefectGroup()
+  const archive = useArchiveDefectGroup()
   const createDefectEntry = useCreateCatalogEntry('defects')
   const createDefect = useMutation({
     mutationFn: ({ addToGroup }) =>
@@ -208,7 +186,16 @@ export function DefectGroupsPanel({ onHide }) {
               className="modal-form"
               onSubmit={(event) => {
                 event.preventDefault()
-                save.mutate()
+                save.mutate(
+                  { id: editingId, payload: form },
+                  {
+                    onSuccess: () => {
+                      setModalOpen(false)
+                      setEditingId('')
+                      setForm(emptyForm)
+                    },
+                  },
+                )
               }}
             >
               <label>
