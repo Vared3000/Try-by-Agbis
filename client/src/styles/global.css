@@ -500,33 +500,6 @@ textarea:focus {
   background: #f4f7f5;
   align-self: start;
 }
-.service-adder {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) 130px auto;
-  align-items: end;
-  gap: 0.5rem;
-  margin: 0.9rem 0 0;
-  padding: 0.9rem;
-  border: 1px solid #dce7e1;
-  border-radius: 14px;
-  background: #f6f9f7;
-}
-.service-adder-heading {
-  display: flex;
-  align-items: baseline;
-  gap: 0.55rem;
-}
-.service-adder-heading small {
-  color: #788980;
-}
-.service-adder .service-combobox {
-  grid-column: 1;
-}
-.service-adder .form-error,
-.service-adder .form-hint {
-  grid-column: 1 / -1;
-  margin: 0;
-}
 .clickable-list article {
   cursor: pointer;
 }
@@ -782,30 +755,6 @@ textarea:focus {
   gap: 0.65rem;
   padding-top: 0.4rem;
 }
-.payment-modal {
-  width: min(560px, 100%);
-}
-.payment-summary {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.5rem 1rem;
-  border-radius: 14px;
-  background: #f3f7f4;
-  padding: 1rem;
-}
-.payment-summary span {
-  color: #667a6f;
-}
-.payment-summary strong {
-  text-align: right;
-}
-.payment-summary span:last-of-type,
-.payment-summary strong:last-child {
-  border-top: 1px solid #dce6e0;
-  padding-top: 0.65rem;
-  color: #174e3b;
-  font-size: 1.05rem;
-}
 
 .transfer-workspace {
   display: grid;
@@ -942,74 +891,6 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 }
-.payment-methods {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  margin: 0;
-  border: 0;
-  padding: 0;
-}
-.payment-methods legend {
-  grid-column: 1 / -1;
-  margin-bottom: 0.55rem;
-  font-weight: 800;
-}
-.payment-methods button {
-  display: grid;
-  place-items: center;
-  gap: 0.4rem;
-  min-height: 105px;
-  border: 2px solid #dce6e0;
-  border-radius: 14px;
-  background: white;
-  color: #315b49;
-}
-.payment-methods button:hover,
-.payment-methods button.active {
-  border-color: #1f654d;
-  background: #eef8f2;
-}
-.payment-methods button span {
-  font-size: 1.7rem;
-  font-weight: 900;
-}
-.payment-methods button strong {
-  font-size: 1rem;
-}
-.measurement-editor {
-  display: grid;
-  grid-template-columns:
-    minmax(180px, 1fr) minmax(120px, 0.55fr) minmax(120px, 0.55fr)
-    auto;
-  gap: 0.65rem;
-  align-items: end;
-  margin: 0.75rem 0;
-  padding: 0.8rem;
-  border: 1px solid #dce7e0;
-  border-radius: 11px;
-  background: #f4f8f5;
-}
-.measurement-editor > div:first-child {
-  display: grid;
-  align-self: center;
-  gap: 0.2rem;
-}
-.measurement-editor > div:first-child small {
-  color: #708078;
-  font-size: 0.7rem;
-}
-.measurement-actions {
-  display: flex;
-  gap: 0.45rem;
-}
-.measurement-editor .form-error {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-.measurement-edit-button {
-  margin: 0.25rem 0 0.75rem;
-}
 .choice-checks {
   grid-column: 1 / -1;
   border: 1px solid #dfe7e2;
@@ -1043,9 +924,6 @@ textarea:focus {
   width: 14px;
   height: 14px;
   padding: 0;
-}
-.order-create-card {
-  max-width: 1080px;
 }
 .order-rework-check {
   display: flex;
@@ -1287,127 +1165,10 @@ textarea:focus {
     min-width: 0;
   }
 }
-.item-status-control {
-  display: grid;
-  justify-items: end;
-  gap: 0.3rem;
-}
-.item-status-control > span {
-  color: #74867c;
-  font-size: 0.7rem;
-}
-.item-status-control > div {
-  display: flex;
-  overflow: hidden;
-  border: 1px solid #d6e2dc;
-  border-radius: 10px;
-}
-.item-status-control button {
-  min-height: 36px;
-  border: 0;
-  border-left: 1px solid #d6e2dc;
-  background: white;
-  padding: 0.45rem 0.7rem;
-  color: #456356;
-  font-size: 0.75rem;
-  font-weight: 800;
-}
-.item-status-control button:first-child {
-  border-left: 0;
-}
-.item-status-control button:hover:not(:disabled),
-.item-status-control button.active {
-  background: #e9f5ee;
-  color: #17533d;
-}
-.item-status-control button.active.issued {
-  background: #dff1e6;
-}
-.item-status-control button:disabled:not(.active) {
-  color: #9aa8a1;
-}
 .item-status-error {
   max-width: 360px;
   color: #b13c32 !important;
   text-align: right;
-}
-.item-photos {
-  margin: 0.85rem 0;
-  padding-top: 0.75rem;
-  border-top: 1px solid #e8eeea;
-}
-.item-photos-head {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-bottom: 0.6rem;
-  font-size: 0.8rem;
-}
-.item-photos-head span {
-  min-width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: #edf3ef;
-  color: #577064;
-  font-size: 0.7rem;
-}
-.photo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 0.6rem;
-}
-.photo-card,
-.photo-upload {
-  min-height: 120px;
-  border: 1px solid #dce5df;
-  border-radius: 11px;
-  overflow: hidden;
-  background: #f6f8f6;
-}
-.photo-card {
-  display: grid;
-  grid-template-rows: 82px auto auto;
-}
-.photo-card img {
-  width: 100%;
-  height: 82px;
-  object-fit: cover;
-}
-.photo-card small {
-  overflow: hidden;
-  padding: 0.35rem 0.45rem 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.photo-card .text-button {
-  justify-self: start;
-  font-size: 0.7rem;
-}
-.photo-loading {
-  display: grid;
-  place-items: center;
-  color: #829188;
-}
-.photo-upload {
-  position: relative;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 0.25rem;
-  color: #426455;
-  cursor: pointer;
-  font-size: 0.75rem;
-}
-.photo-upload > span {
-  font-size: 1.5rem;
-}
-.photo-upload input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
 }
 @media (max-width: 850px) {
   .workspace-grid,
@@ -1419,8 +1180,6 @@ textarea:focus {
   .service-form,
   .price-form,
   .item-form,
-  .service-adder,
-  .measurement-editor,
   .defect-create-row,
   .defect-create-inline {
     grid-template-columns: 1fr;
@@ -1452,8 +1211,5 @@ textarea:focus {
   .client-selection {
     align-items: stretch;
     flex-direction: column;
-  }
-  .payment-methods {
-    grid-template-columns: 1fr;
   }
 }

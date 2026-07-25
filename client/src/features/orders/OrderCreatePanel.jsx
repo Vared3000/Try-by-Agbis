@@ -1,5 +1,7 @@
 import { Controller } from 'react-hook-form'
 
+import styles from './OrderCreatePanel.module.css'
+
 export function OrderCreatePanel({
   control,
   register,
@@ -18,7 +20,7 @@ export function OrderCreatePanel({
   watchedClientId,
 }) {
   return (
-    <div className="order-create-card">
+    <div className={styles.orderCreateCard}>
       <form className="form-grid" onSubmit={onSubmit}>
         <div className="client-selection field-wide">
           {selectedClient ? (

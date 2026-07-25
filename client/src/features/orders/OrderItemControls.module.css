@@ -1,0 +1,145 @@
+.itemPhotos {
+  margin: 0.85rem 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e8eeea;
+}
+.itemPhotosHead {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
+}
+.itemPhotosHead span {
+  min-width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #edf3ef;
+  color: #577064;
+  font-size: 0.7rem;
+}
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.6rem;
+}
+.photoCard,
+.photoUpload {
+  min-height: 120px;
+  border: 1px solid #dce5df;
+  border-radius: 11px;
+  overflow: hidden;
+  background: #f6f8f6;
+}
+.photoCard {
+  display: grid;
+  grid-template-rows: 82px auto auto;
+}
+.photoCard img {
+  width: 100%;
+  height: 82px;
+  object-fit: cover;
+}
+.photoCard small {
+  overflow: hidden;
+  padding: 0.35rem 0.45rem 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.photoCard :global(.text-button) {
+  justify-self: start;
+  font-size: 0.7rem;
+}
+.photoLoading {
+  display: grid;
+  place-items: center;
+  color: #829188;
+}
+.photoUpload {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.25rem;
+  color: #426455;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+.photoUpload > span {
+  font-size: 1.5rem;
+}
+.photoUpload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.measurementEditor {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1fr) minmax(120px, 0.55fr) minmax(120px, 0.55fr)
+    auto;
+  gap: 0.65rem;
+  align-items: end;
+  margin: 0.75rem 0;
+  padding: 0.8rem;
+  border: 1px solid #dce7e0;
+  border-radius: 11px;
+  background: #f4f8f5;
+}
+.measurementEditor > div:first-child {
+  display: grid;
+  align-self: center;
+  gap: 0.2rem;
+}
+.measurementEditor > div:first-child small {
+  color: #708078;
+  font-size: 0.7rem;
+}
+.measurementActions {
+  display: flex;
+  gap: 0.45rem;
+}
+.measurementEditor :global(.form-error) {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.measurementEditButton {
+  margin: 0.25rem 0 0.75rem;
+}
+.serviceAdder {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 130px auto;
+  align-items: end;
+  gap: 0.5rem;
+  margin: 0.9rem 0 0;
+  padding: 0.9rem;
+  border: 1px solid #dce7e1;
+  border-radius: 14px;
+  background: #f6f9f7;
+}
+.serviceAdderHeading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+}
+.serviceAdderHeading small {
+  color: #788980;
+}
+.serviceAdder :global(.service-combobox) {
+  grid-column: 1;
+}
+.serviceAdder :global(.form-error),
+.serviceAdder :global(.form-hint) {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 850px) {
+  .serviceAdder,
+  .measurementEditor {
+    grid-template-columns: 1fr;
+  }
+}

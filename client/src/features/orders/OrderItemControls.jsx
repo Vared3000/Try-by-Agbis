@@ -8,6 +8,7 @@ import { useUpdateOrderItemMeasurements } from '../../mutations/measurements.js'
 import { useAddOrderItemService, useRemoveOrderItemService } from '../../mutations/orders.js'
 import { measurementSchema, serviceAdderSchema } from '../../schemas/order-items.js'
 import { getFileBlob } from '../../services/files.js'
+import styles from './OrderItemControls.module.css'
 import { availableServicePrices } from './service-options.js'
 import { ServiceCombobox } from './ServiceCombobox.jsx'
 
@@ -16,14 +17,14 @@ export function ItemPhotos({ item, editable, onChanged }) {
   const remove = useDeleteFile({ onSuccess: onChanged })
 
   return (
-    <div className="item-photos">
-      <div className="item-photos-head">
+    <div className={styles.itemPhotos}>
+      <div className={styles.itemPhotosHead}>
         <strong>Фотографии</strong>
         <span>{item.files?.length ?? 0}</span>
       </div>
-      <div className="photo-grid">
+      <div className={styles.photoGrid}>
         {(item.files ?? []).map((file) => (
-          <div key={file.id} className="photo-card">
+          <div key={file.id} className={styles.photoCard}>
             <ProtectedImage file={file} />
             <small title={file.originalName}>{file.originalName}</small>
             {editable && (
@@ -38,7 +39,7 @@ export function ItemPhotos({ item, editable, onChanged }) {
           </div>
         ))}
         {editable && (
-          <label className="photo-upload">
+          <label className={styles.photoUpload}>
             <span>＋</span>
             Добавить фото
             <input
@@ -80,7 +81,7 @@ function ProtectedImage({ file }) {
   return source ? (
     <img src={source} alt={file.originalName} loading="lazy" />
   ) : (
-    <span className="photo-loading">Фото</span>
+    <span className={styles.photoLoading}>Фото</span>
   )
 }
 
@@ -134,7 +135,7 @@ export function MeasurementEditor({ item, onChanged }) {
     return (
       <button
         type="button"
-        className="text-button measurement-edit-button"
+        className={`text-button ${styles.measurementEditButton}`}
         onClick={() => setEditing(true)}
       >
         Изменить замер
@@ -144,7 +145,7 @@ export function MeasurementEditor({ item, onChanged }) {
 
   return (
     <form
-      className="measurement-editor"
+      className={styles.measurementEditor}
       onSubmit={handleSubmit((values) => {
         saveMeasurement.mutate({
           length: values.length,
@@ -167,7 +168,7 @@ export function MeasurementEditor({ item, onChanged }) {
           <input required type="number" min="0.001" step="0.001" {...register('width')} />
         </label>
       )}
-      <div className="measurement-actions">
+      <div className={styles.measurementActions}>
         {measured && (
           <button
             type="button"
@@ -216,12 +217,12 @@ export function ServiceAdder({ item, prices, onChanged }) {
 
   return (
     <form
-      className="service-adder"
+      className={styles.serviceAdder}
       onSubmit={handleSubmit((values) => {
         addService.mutate(values)
       })}
     >
-      <div className="service-adder-heading field-wide">
+      <div className={`${styles.serviceAdderHeading} field-wide`}>
         <strong>Добавить услугу</strong>
         <small>Например, пятновыведение, пропитку или мелкий ремонт.</small>
       </div>

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { apiError, money } from '../../pages/workspace-utils.js'
 import { useCreatePayment } from '../../mutations/payments.js'
 import { kopecksToRubles } from './payment-utils.js'
+import styles from './PaymentModal.module.css'
 
 const methodLabels = {
   cash: 'наличными',
@@ -58,7 +59,7 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
       }}
     >
       <section
-        className="modal-card payment-modal"
+        className={`modal-card ${styles.paymentModal}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="payment-title"
@@ -80,7 +81,7 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
         </div>
 
         <form className="modal-form" onSubmit={submit}>
-          <div className="payment-summary">
+          <div className={styles.paymentSummary}>
             <span>Стоимость заказа</span>
             <strong>{money(order.totalAmount)}</strong>
             <span>Уже оплачено</span>
@@ -100,7 +101,7 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
             )}
           </label>
 
-          <fieldset className="payment-methods">
+          <fieldset className={styles.paymentMethods}>
             <legend>Способ оплаты</legend>
             <button
               type="button"

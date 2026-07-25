@@ -1,3 +1,5 @@
+import styles from './ItemStatusActions.module.css'
+
 const activeWorkStatuses = new Set([
   'in_progress',
   'cleaning',
@@ -20,7 +22,7 @@ export function ItemStatusActions({
   const issued = item.status === 'issued'
 
   return (
-    <div className="item-status-control">
+    <div className={styles.itemStatusControl}>
       <span>Статус позиции</span>
       <div>
         <button

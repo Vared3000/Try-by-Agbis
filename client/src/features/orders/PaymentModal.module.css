@@ -1,0 +1,65 @@
+.paymentModal {
+  width: min(560px, 100%);
+}
+.paymentSummary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem 1rem;
+  border-radius: 14px;
+  background: #f3f7f4;
+  padding: 1rem;
+}
+.paymentSummary span {
+  color: #667a6f;
+}
+.paymentSummary strong {
+  text-align: right;
+}
+.paymentSummary span:last-of-type,
+.paymentSummary strong:last-child {
+  border-top: 1px solid #dce6e0;
+  padding-top: 0.65rem;
+  color: #174e3b;
+  font-size: 1.05rem;
+}
+.paymentMethods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.paymentMethods legend {
+  grid-column: 1 / -1;
+  margin-bottom: 0.55rem;
+  font-weight: 800;
+}
+.paymentMethods button {
+  display: grid;
+  place-items: center;
+  gap: 0.4rem;
+  min-height: 105px;
+  border: 2px solid #dce6e0;
+  border-radius: 14px;
+  background: white;
+  color: #315b49;
+}
+.paymentMethods button:hover,
+.paymentMethods button:global(.active) {
+  border-color: #1f654d;
+  background: #eef8f2;
+}
+.paymentMethods button span {
+  font-size: 1.7rem;
+  font-weight: 900;
+}
+.paymentMethods button strong {
+  font-size: 1rem;
+}
+
+@media (max-width: 850px) {
+  .paymentMethods {
+    grid-template-columns: 1fr;
+  }
+}
