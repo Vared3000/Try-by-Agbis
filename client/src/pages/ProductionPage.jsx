@@ -1,12 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
 
-import { apiClient } from '../api/client.js'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
+import { useProductionItems, useProductionRoutes } from '../queries/production.js'
+import { useTransitionProductionItem } from '../mutations/production.js'
+import { scanProductionItem } from '../services/production.js'
 import { apiError } from './workspace-utils.js'
 
 export function ProductionPage() {
-  const queryClient = useQueryClient()
   const scannerRef = useRef(null)
   const [scanCode, setScanCode] = useState('')
   const [search, setSearch] = useState('')
@@ -14,31 +14,15 @@ export function ProductionPage() {
   const [status, setStatus] = useState('')
   const [item, setItem] = useState(null)
   const [error, setError] = useState('')
-  const routes = useQuery({
-    queryKey: ['production-routes'],
-    queryFn: async () => (await apiClient.get('/production/routes')).data.data,
-  })
-  const queue = useQuery({
-    queryKey: ['production-items', debouncedSearch, status],
-    queryFn: async () =>
-      (
-        await apiClient.get('/production/items', {
-          params: {
-            ...(debouncedSearch ? { search: debouncedSearch } : {}),
-            ...(status ? { status } : {}),
-          },
-        })
-      ).data,
-  })
+  const routes = useProductionRoutes()
+  const queue = useProductionItems(debouncedSearch, status)
 
   const scan = async (code = scanCode) => {
     if (!code.trim()) return
     setError('')
     try {
-      const response = await apiClient.get(
-        `/production/items/scan/${encodeURIComponent(code.trim())}`,
-      )
-      setItem(response.data.data)
+      const scannedItem = await scanProductionItem(code.trim())
+      setItem(scannedItem)
       window.requestAnimationFrame(() => scannerRef.current?.select())
     } catch (requestError) {
       setItem(null)
@@ -46,17 +30,12 @@ export function ProductionPage() {
       window.requestAnimationFrame(() => scannerRef.current?.select())
     }
   }
-  const transition = useMutation({
-    mutationFn: ({ stageId, action }) =>
-      apiClient.post(`/order-items/${item.id}/transition`, {
-        stageId,
-        action,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['production-items'] })
-      scan(item.scanCode)
-    },
-  })
+  const transition = useTransitionProductionItem()
+  const runTransition = (stageId, action) =>
+    transition.mutate(
+      { itemId: item.id, stageId, action },
+      { onSuccess: () => scan(item.scanCode) },
+    )
   const route = routes.data?.find((row) => row.id === item?.routeId)
   const histories = useMemo(
     () =>
@@ -219,12 +198,7 @@ export function ProductionPage() {
                       <button
                         className="primary-button"
                         disabled={transition.isPending}
-                        onClick={() =>
-                          transition.mutate({
-                            stageId: latest.stageId,
-                            action: 'complete',
-                          })
-                        }
+                        onClick={() => runTransition(latest.stageId, 'complete')}
                       >
                         Завершить этап «{activeStage?.stage?.name}»
                       </button>
@@ -232,12 +206,7 @@ export function ProductionPage() {
                         <button
                           className="secondary-button danger-button"
                           disabled={transition.isPending}
-                          onClick={() =>
-                            transition.mutate({
-                              stageId: latest.stageId,
-                              action: 'rework',
-                            })
-                          }
+                          onClick={() => runTransition(latest.stageId, 'rework')}
                         >
                           Вернуть на доработку
                         </button>
@@ -247,12 +216,7 @@ export function ProductionPage() {
                     <button
                       className="primary-button"
                       disabled={transition.isPending}
-                      onClick={() =>
-                        transition.mutate({
-                          stageId: nextStage.stageId,
-                          action: 'start',
-                        })
-                      }
+                      onClick={() => runTransition(nextStage.stageId, 'start')}
                     >
                       Начать этап «{nextStage.stage?.name}»
                     </button>
