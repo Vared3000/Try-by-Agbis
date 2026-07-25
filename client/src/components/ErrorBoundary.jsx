@@ -1,5 +1,7 @@
 import { Component } from 'react'
 
+import styles from './ErrorBoundary.module.css'
+
 export class ErrorBoundary extends Component {
   state = { error: null }
 
@@ -33,7 +35,7 @@ export class ErrorBoundary extends Component {
 
 function DefaultFallback({ error, onReset }) {
   return (
-    <section className="error-boundary">
+    <section className={styles.errorBoundary}>
       <span>⚠</span>
       <h2>Что-то пошло не так</h2>
       <p>
@@ -41,9 +43,9 @@ function DefaultFallback({ error, onReset }) {
         пострадали — попробуйте открыть раздел заново.
       </p>
       {import.meta.env.DEV && (
-        <pre className="error-boundary-detail">{String(error?.stack || error)}</pre>
+        <pre className={styles.errorBoundaryDetail}>{String(error?.stack || error)}</pre>
       )}
-      <div className="error-boundary-actions">
+      <div className={styles.errorBoundaryActions}>
         <button className="primary-button" onClick={onReset}>
           Попробовать снова
         </button>

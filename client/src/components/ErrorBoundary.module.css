@@ -1,0 +1,38 @@
+.errorBoundary {
+  margin: 1.5rem;
+  padding: 2.5rem 2rem;
+  border-radius: 16px;
+  border: 1px solid #e6c3bf;
+  background: #fff5f3;
+  color: #7a2e26;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.errorBoundary > span {
+  font-size: 2rem;
+}
+.errorBoundary h2 {
+  margin: 0;
+}
+.errorBoundary p {
+  margin: 0;
+  max-width: 480px;
+  color: #96453b;
+}
+.errorBoundaryDetail {
+  max-width: 100%;
+  overflow: auto;
+  text-align: left;
+  background: #ffffffaa;
+  border-radius: 10px;
+  padding: 0.75rem;
+  font-size: 0.75rem;
+}
+.errorBoundaryActions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}

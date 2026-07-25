@@ -135,44 +135,6 @@ textarea:focus {
   font-size: 0.75rem;
 }
 
-.error-boundary {
-  margin: 1.5rem;
-  padding: 2.5rem 2rem;
-  border-radius: 16px;
-  border: 1px solid #e6c3bf;
-  background: #fff5f3;
-  color: #7a2e26;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-.error-boundary > span {
-  font-size: 2rem;
-}
-.error-boundary h2 {
-  margin: 0;
-}
-.error-boundary p {
-  margin: 0;
-  max-width: 480px;
-  color: #96453b;
-}
-.error-boundary-detail {
-  max-width: 100%;
-  overflow: auto;
-  text-align: left;
-  background: #ffffffaa;
-  border-radius: 10px;
-  padding: 0.75rem;
-  font-size: 0.75rem;
-}
-.error-boundary-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
 
 .avatar {
   width: 34px;
@@ -1287,13 +1249,6 @@ textarea:focus {
   justify-content: flex-end;
   gap: 0.65rem;
   padding-top: 0.4rem;
-}
-.confirm-dialog {
-  width: min(420px, 100%);
-}
-.confirm-dialog p {
-  margin: 0 0 1.25rem;
-  color: #445048;
 }
 .payment-modal {
   width: min(560px, 100%);

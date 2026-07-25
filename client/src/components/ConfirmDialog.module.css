@@ -1,0 +1,7 @@
+.confirmDialog {
+  width: min(420px, 100%);
+}
+.confirmDialog p {
+  margin: 0 0 1.25rem;
+  color: #445048;
+}

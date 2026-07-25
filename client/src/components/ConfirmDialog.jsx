@@ -1,3 +1,5 @@
+import styles from './ConfirmDialog.module.css'
+
 export function ConfirmDialog({
   open,
   title,
@@ -19,7 +21,7 @@ export function ConfirmDialog({
       }}
     >
       <section
-        className="modal-card confirm-dialog"
+        className={`modal-card ${styles.confirmDialog}`}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
