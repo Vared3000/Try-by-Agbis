@@ -1482,6 +1482,13 @@ textarea:focus {
   gap: 0.65rem;
   padding-top: 0.4rem;
 }
+.confirm-dialog {
+  width: min(420px, 100%);
+}
+.confirm-dialog p {
+  margin: 0 0 1.25rem;
+  color: #445048;
+}
 .payment-modal {
   width: min(560px, 100%);
 }

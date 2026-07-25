@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 
+import { ConfirmDialog } from '../../components/ConfirmDialog.jsx'
 import { apiError, money, orderStatusLabel } from '../../pages/workspace-utils.js'
 import { orderItemSchema } from '../../schemas/order-items.js'
 import { defectsForNomenclature } from './defect-options.js'
@@ -56,6 +57,8 @@ export function OrderEditor({
   const [issueReason, setIssueReason] = useState('')
   const [metaOpen, setMetaOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState(null)
+  const closeConfirmDialog = () => setConfirmDialog(null)
   const {
     register: registerItem,
     handleSubmit: handleItemSubmit,
@@ -602,16 +605,18 @@ export function OrderEditor({
               issueOrder.isPending
             }
             onClick={() => {
-              if (
-                window.confirm(
-                  `Выдать весь заказ ${order.displayNumber} — ${remainingItems.length} изд.?`,
-                )
-              ) {
-                issueOrder.mutate({
-                  itemIds: remainingItems.map((item) => item.id),
-                  reason: issueReason.trim(),
-                })
-              }
+              setConfirmDialog({
+                title: 'Выдать весь заказ?',
+                message: `Выдать весь заказ ${order.displayNumber} — ${remainingItems.length} изд.?`,
+                confirmLabel: 'Выдать',
+                onConfirm: () => {
+                  closeConfirmDialog()
+                  issueOrder.mutate({
+                    itemIds: remainingItems.map((item) => item.id),
+                    reason: issueReason.trim(),
+                  })
+                },
+              })
             }}
           >
             Выдать весь заказ
@@ -670,9 +675,16 @@ export function OrderEditor({
             className="secondary-button danger-button"
             disabled={cancelOrder.isPending}
             onClick={() => {
-              if (window.confirm(`Отменить заказ ${order.displayNumber}?`)) {
-                cancelOrder.mutate()
-              }
+              setConfirmDialog({
+                title: 'Отменить заказ?',
+                message: `Отменить заказ ${order.displayNumber}? Действие нельзя будет отменить.`,
+                confirmLabel: 'Отменить заказ',
+                danger: true,
+                onConfirm: () => {
+                  closeConfirmDialog()
+                  cancelOrder.mutate()
+                },
+              })
             }}
           >
             Отменить заказ
@@ -697,6 +709,15 @@ export function OrderEditor({
           onPaid={onChanged}
         />
       )}
+      <ConfirmDialog
+        open={Boolean(confirmDialog)}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={closeConfirmDialog}
+      />
     </div>
   )
 }
