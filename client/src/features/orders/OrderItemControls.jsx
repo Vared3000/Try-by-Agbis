@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { apiError } from '../../pages/workspace-utils.js'
 import { useDeleteFile, useUploadFile } from '../../mutations/files.js'
 import { useUpdateOrderItemMeasurements } from '../../mutations/measurements.js'
-import { useAddOrderItemService } from '../../mutations/orders.js'
+import { useAddOrderItemService, useRemoveOrderItemService } from '../../mutations/orders.js'
 import { getFileBlob } from '../../services/files.js'
 import { availableServicePrices } from './service-options.js'
 import { ServiceCombobox } from './ServiceCombobox.jsx'
@@ -252,5 +252,28 @@ export function ServiceAdder({ item, prices, onChanged }) {
       )}
       {addService.error && <p className="form-error">{apiError(addService.error)}</p>}
     </form>
+  )
+}
+
+export function RemoveServiceButton({ itemId, service, onChanged }) {
+  const removeService = useRemoveOrderItemService(itemId, service.id, {
+    onSuccess: onChanged,
+  })
+
+  return (
+    <>
+      <button
+        type="button"
+        className="text-button danger"
+        disabled={removeService.isPending}
+        onClick={() => removeService.mutate()}
+        aria-label={`Удалить услугу ${service.serviceName}`}
+      >
+        Удалить
+      </button>
+      {removeService.error && (
+        <small className="item-status-error">{apiError(removeService.error)}</small>
+      )}
+    </>
   )
 }
