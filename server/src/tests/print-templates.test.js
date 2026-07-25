@@ -80,6 +80,22 @@ describe('print templates', () => {
     expect(html).toContain('Бирки 000015-1: 1 шт.')
   })
 
+  it('renders the receipt when dates come back as Date instances (as Sequelize returns them)', () => {
+    const html = renderReceiptHtml({
+      order: {
+        ...order,
+        acceptedOn: '2026-07-24',
+        dueAt: new Date('2026-07-27T10:00:00.000Z'),
+        client: { ...order.client, addresses: [{ address: 'г. Москва, ул. Тестовая, д. 1', isPrimary: true }] },
+      },
+      organization: { name: 'Тестовая химчистка' },
+    })
+
+    expect(html).toContain('24 июл. 2026')
+    expect(html).toContain('27 июл. 2026')
+    expect(html).toContain('г. Москва, ул. Тестовая, д. 1')
+  })
+
   it('marks an unmeasured square-meter position in the customer receipt', () => {
     const html = renderReceiptHtml({
       order: {

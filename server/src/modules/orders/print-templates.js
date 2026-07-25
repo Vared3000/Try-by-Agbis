@@ -12,13 +12,12 @@ const money = (value) =>
     currency: 'RUB',
   }).format(Number(value || 0) / 100)
 
-const dateTime = (value) =>
-  value
-    ? new Intl.DateTimeFormat('ru-RU', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(new Date(value))
-    : 'Не указан'
+const dateOnly = (value) => {
+  if (!value) return 'Не указана'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Не указана'
+  return new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeZone: 'UTC' }).format(date)
+}
 
 const unitLabels = {
   piece: 'шт.',
@@ -171,8 +170,8 @@ export function renderReceiptHtml({
       </div>
     </header>
     <section class="meta">
-      <div><span>Дата приёма</span><strong>${escapeHtml(dateTime(order.createdAt))}</strong></div>
-      <div><span>Срок готовности</span><strong>${escapeHtml(dateTime(order.dueAt))}</strong></div>
+      <div><span>Дата приёма</span><strong>${escapeHtml(dateOnly(order.acceptedOn))}</strong></div>
+      <div><span>Срок готовности</span><strong>${escapeHtml(dateOnly(order.dueAt))}</strong></div>
       <div><span>Клиент</span><strong>${escapeHtml(order.client?.fullName)}</strong></div>
       <div><span>Телефон</span><strong>${escapeHtml(order.client?.phone || 'Не указан')}</strong></div>
       <div class="wide"><span>Адрес доставки</span><strong>${escapeHtml(clientAddress?.address || 'Не указан')}</strong></div>

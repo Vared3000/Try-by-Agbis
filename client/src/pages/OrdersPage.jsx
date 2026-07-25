@@ -56,6 +56,7 @@ export function OrdersPage() {
       `${location.pathname}${status ? `?status=${encodeURIComponent(status)}` : ''}`,
     )
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
+  const [createFormOpen, setCreateFormOpen] = useState(Boolean(requestedClientId))
   const [orderSearch, setOrderSearch] = useState('')
   const debouncedOrderSearch = useDebouncedValue(orderSearch)
   const [orderForm, setOrderForm] = useState({
@@ -347,35 +348,19 @@ export function OrdersPage() {
             <h2>Приёмка</h2>
           </div>
           {selectedOrderId && (
-            <button className="secondary-button" onClick={() => setSelectedOrderId('')}>
+            <button
+              className="secondary-button"
+              onClick={() => {
+                setSelectedOrderId('')
+                setCreateFormOpen(false)
+              }}
+            >
               Новый черновик <kbd>F2</kbd>
             </button>
           )}
         </div>
 
-        {!selectedOrderId ? (
-          <OrderCreatePanel
-            effectiveLocationId={effectiveLocationId}
-            effectivePriceListId={effectivePriceListId}
-            errorMessage={createOrder.error ? apiError(createOrder.error) : ''}
-            form={{
-              ...orderForm,
-              notificationPhone:
-                orderForm.notificationPhone || selectedClient?.phone || '',
-            }}
-            isPending={createOrder.isPending}
-            issueLocations={issueLocations}
-            locations={locations}
-            priceLists={activePriceLists}
-            today={today}
-            onChooseClient={() => setClientPickerOpen(true)}
-            onFormChange={(changes) =>
-              setOrderForm((value) => ({ ...value, ...changes }))
-            }
-            onSubmit={() => createOrder.mutate()}
-            selectedClient={selectedClient}
-          />
-        ) : (
+        {selectedOrderId ? (
           <OrderEditor
             key={selectedOrderId}
             order={order.data}
@@ -410,6 +395,32 @@ export function OrdersPage() {
               ])
             }
           />
+        ) : createFormOpen ? (
+          <OrderCreatePanel
+            effectiveLocationId={effectiveLocationId}
+            effectivePriceListId={effectivePriceListId}
+            errorMessage={createOrder.error ? apiError(createOrder.error) : ''}
+            form={{
+              ...orderForm,
+              notificationPhone:
+                orderForm.notificationPhone || selectedClient?.phone || '',
+            }}
+            isPending={createOrder.isPending}
+            issueLocations={issueLocations}
+            locations={locations}
+            priceLists={activePriceLists}
+            today={today}
+            onChooseClient={() => setClientPickerOpen(true)}
+            onFormChange={(changes) =>
+              setOrderForm((value) => ({ ...value, ...changes }))
+            }
+            onSubmit={() => createOrder.mutate()}
+            selectedClient={selectedClient}
+          />
+        ) : (
+          <button className="primary-button" onClick={() => setCreateFormOpen(true)}>
+            + Создать заказ
+          </button>
         )}
       </section>
 
