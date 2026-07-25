@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
 import { useAuth } from '../app/auth-context.js'
+import { ErrorBoundary } from '../components/ErrorBoundary.jsx'
 import { useFinancialReport, useOperationalReport } from '../queries/reports.js'
 import { CatalogPage } from './CatalogPage.jsx'
 import { ClientsPage } from './ClientsPage.jsx'
@@ -143,28 +144,30 @@ export function WorkspacePage() {
           </section>
         )}
 
-        {section === 'production' && <ProductionPage />}
-        {section === 'transfers' && <TransfersPage />}
+        <ErrorBoundary resetKey={section}>
+          {section === 'production' && <ProductionPage />}
+          {section === 'transfers' && <TransfersPage />}
 
-        {section === 'clients' && <ClientsPage />}
-        {section === 'orders' && <OrdersPage />}
-        {section === 'nomenclature' && <NomenclaturePage />}
-        {section === 'catalog' && <CatalogPage />}
-        {section === 'pricing' && <PriceListsPage />}
-        {section === 'notifications' && (
-          <DataList section={section} data={list.data} loading={list.isPending} />
-        )}
+          {section === 'clients' && <ClientsPage />}
+          {section === 'orders' && <OrdersPage />}
+          {section === 'nomenclature' && <NomenclaturePage />}
+          {section === 'catalog' && <CatalogPage />}
+          {section === 'pricing' && <PriceListsPage />}
+          {section === 'notifications' && (
+            <DataList section={section} data={list.data} loading={list.isPending} />
+          )}
 
-        {section === 'cash' && (
-          <section className="panel empty-state">
-            <span>₽</span>
-            <h2>Кассовые операции</h2>
-            <p>
-              Открывайте смену из рабочего места приёмки. Оплаты и возвраты доступны
-              внутри карточки заказа.
-            </p>
-          </section>
-        )}
+          {section === 'cash' && (
+            <section className="panel empty-state">
+              <span>₽</span>
+              <h2>Кассовые операции</h2>
+              <p>
+                Открывайте смену из рабочего места приёмки. Оплаты и возвраты доступны
+                внутри карточки заказа.
+              </p>
+            </section>
+          )}
+        </ErrorBoundary>
       </main>
     </div>
   )

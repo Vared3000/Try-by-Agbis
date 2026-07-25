@@ -170,6 +170,45 @@ textarea:focus {
   font-size: 0.85rem;
 }
 
+.error-boundary {
+  margin: 1.5rem;
+  padding: 2.5rem 2rem;
+  border-radius: 16px;
+  border: 1px solid #e6c3bf;
+  background: #fff5f3;
+  color: #7a2e26;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.error-boundary > span {
+  font-size: 2rem;
+}
+.error-boundary h2 {
+  margin: 0;
+}
+.error-boundary p {
+  margin: 0;
+  max-width: 480px;
+  color: #96453b;
+}
+.error-boundary-detail {
+  max-width: 100%;
+  overflow: auto;
+  text-align: left;
+  background: #ffffffaa;
+  border-radius: 10px;
+  padding: 0.75rem;
+  font-size: 0.75rem;
+}
+.error-boundary-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
 .workspace {
   min-height: 100vh;
   display: grid;
