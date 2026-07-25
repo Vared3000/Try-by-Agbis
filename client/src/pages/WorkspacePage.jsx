@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
 import { useAuth } from '../app/auth-context.js'
+import { useFinancialReport, useOperationalReport } from '../queries/reports.js'
 import { CatalogPage } from './CatalogPage.jsx'
 import { ClientsPage } from './ClientsPage.jsx'
 import { NomenclaturePage } from './NomenclaturePage.jsx'
@@ -44,14 +45,10 @@ export function WorkspacePage() {
     queryFn: async () => (await apiClient.get(endpoints[section])).data.data,
     enabled: Boolean(endpoints[section]),
   })
-  const operational = useQuery({
-    queryKey: ['reports', 'operational'],
-    queryFn: async () => (await apiClient.get('/reports/operational')).data.data,
+  const operational = useOperationalReport({
     enabled: section === 'overview' || section === 'reports',
   })
-  const financial = useQuery({
-    queryKey: ['reports', 'financial'],
-    queryFn: async () => (await apiClient.get('/reports/financial')).data.data,
+  const financial = useFinancialReport({
     enabled: section === 'overview' || section === 'reports',
   })
 
