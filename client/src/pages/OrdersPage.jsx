@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { apiClient } from '../api/client.js'
 import { useCatalog } from '../queries/catalog.js'
 import { useNomenclature } from '../queries/nomenclature.js'
+import { usePriceList, usePriceLists } from '../queries/price-lists.js'
 import {
   ChoiceChecks,
   ItemPhotos,
@@ -128,10 +129,7 @@ export function OrdersPage() {
   const colors = useCatalog('colors')
   const defects = useCatalog('defects')
   const contaminations = useCatalog('contaminations')
-  const priceLists = useQuery({
-    queryKey: ['price-lists'],
-    queryFn: async () => (await apiClient.get('/price-lists')).data.data,
-  })
+  const priceLists = usePriceLists()
   const today = new Date().toISOString().slice(0, 10)
   const activePriceLists = (priceLists.data ?? []).filter(
     (row) =>
@@ -146,12 +144,7 @@ export function OrdersPage() {
   })
   const effectivePriceListId =
     order.data?.priceListId || orderForm.priceListId || activePriceLists[0]?.id || ''
-  const prices = useQuery({
-    queryKey: ['price-list', effectivePriceListId],
-    queryFn: async () =>
-      (await apiClient.get(`/price-lists/${effectivePriceListId}`)).data.data,
-    enabled: Boolean(effectivePriceListId),
-  })
+  const prices = usePriceList(effectivePriceListId)
   const pricedNomenclature = (nomenclature.data ?? []).map((row) => {
     const override = prices.data?.items?.find(
       (price) => price.nomenclatureItemId === row.id,

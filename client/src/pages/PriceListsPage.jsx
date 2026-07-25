@@ -1,9 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { apiClient } from '../api/client.js'
 import { useServices } from '../queries/services.js'
 import { useNomenclature } from '../queries/nomenclature.js'
+import { usePriceList, usePriceLists } from '../queries/price-lists.js'
+import {
+  useAddPriceListItem,
+  useArchivePriceList,
+  useCreatePriceList,
+  useRemovePriceListItem,
+  useUpdatePriceList,
+  useUpdatePriceListItem,
+} from '../mutations/price-lists.js'
 import { NomenclatureCombobox } from '../features/orders/NomenclatureCombobox.jsx'
 import { ServiceCombobox } from '../features/orders/ServiceCombobox.jsx'
 import { apiError, money } from './workspace-utils.js'
@@ -17,7 +24,6 @@ const unitLabels = {
 }
 
 export function PriceListsPage() {
-  const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [showAllStatuses, setShowAllStatuses] = useState(false)
@@ -34,19 +40,12 @@ export function PriceListsPage() {
     price: '',
   })
   const [editingPrice, setEditingPrice] = useState({ id: '', price: '' })
-  const lists = useQuery({
-    queryKey: ['price-lists'],
-    queryFn: async () => (await apiClient.get('/price-lists')).data.data,
-  })
+  const lists = usePriceLists()
   const effectiveId =
     selectedId ||
     lists.data?.find((row) => row.status === 'active')?.id ||
     lists.data?.[0]?.id
-  const detail = useQuery({
-    queryKey: ['price-list', effectiveId],
-    queryFn: async () => (await apiClient.get(`/price-lists/${effectiveId}`)).data.data,
-    enabled: Boolean(effectiveId),
-  })
+  const detail = usePriceList(effectiveId)
   const nomenclature = useNomenclature()
   const services = useServices()
   const existingNomenclatureIds = new Set(
@@ -64,71 +63,12 @@ export function PriceListsPage() {
   const availableServices = (services.data ?? []).filter(
     (row) => row.id === itemForm.serviceId || !existingGenericServiceIds.has(row.id),
   )
-  const createList = useMutation({
-    mutationFn: async () =>
-      (
-        await apiClient.post('/price-lists', {
-          ...listForm,
-          validTo: listForm.validTo || null,
-        })
-      ).data.data,
-    onSuccess: (row) => {
-      setSelectedId(row.id)
-      setListForm((value) => ({ ...value, name: '' }))
-      setCreateOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['price-lists'] })
-    },
-  })
-  const addPrice = useMutation({
-    mutationFn: () =>
-      apiClient.post(`/price-lists/${effectiveId}/items`, {
-        ...(itemForm.kind === 'service'
-          ? { serviceId: itemForm.serviceId, garmentTypeId: null }
-          : { nomenclatureItemId: itemForm.nomenclatureItemId }),
-        price: String(Math.round(Number(itemForm.price.replace(',', '.')) * 100)),
-      }),
-    onSuccess: () => {
-      setItemForm((value) => ({
-        kind: value.kind,
-        nomenclatureItemId: '',
-        serviceId: '',
-        price: '',
-      }))
-      queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
-    },
-  })
-  const updateList = useMutation({
-    mutationFn: (status) => apiClient.patch(`/price-lists/${effectiveId}`, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['price-lists'] })
-      queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
-    },
-  })
-  const archiveList = useMutation({
-    mutationFn: () => apiClient.delete(`/price-lists/${effectiveId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['price-lists'] })
-      queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
-    },
-  })
-  const updatePrice = useMutation({
-    mutationFn: () =>
-      apiClient.patch(`/price-lists/${effectiveId}/items/${editingPrice.id}`, {
-        price: String(
-          Math.round(Number(String(editingPrice.price).replace(',', '.')) * 100),
-        ),
-      }),
-    onSuccess: () => {
-      setEditingPrice({ id: '', price: '' })
-      queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] })
-    },
-  })
-  const removePrice = useMutation({
-    mutationFn: (itemId) =>
-      apiClient.delete(`/price-lists/${effectiveId}/items/${itemId}`),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['price-list', effectiveId] }),
-  })
+  const createList = useCreatePriceList()
+  const addPrice = useAddPriceListItem(effectiveId)
+  const updateList = useUpdatePriceList(effectiveId)
+  const archiveList = useArchivePriceList(effectiveId)
+  const updatePrice = useUpdatePriceListItem(effectiveId)
+  const removePrice = useRemovePriceListItem(effectiveId)
   const editable = detail.data?.status !== 'inactive'
 
   return (
@@ -149,7 +89,16 @@ export function PriceListsPage() {
             className="form-grid"
             onSubmit={(event) => {
               event.preventDefault()
-              createList.mutate()
+              createList.mutate(
+                { ...listForm, validTo: listForm.validTo || null },
+                {
+                  onSuccess: (row) => {
+                    setSelectedId(row.id)
+                    setListForm((value) => ({ ...value, name: '' }))
+                    setCreateOpen(false)
+                  },
+                },
+              )
             }}
           >
             <label className="field-wide">
@@ -261,7 +210,7 @@ export function PriceListsPage() {
               <button
                 className="text-button"
                 disabled={updateList.isPending}
-                onClick={() => updateList.mutate('active')}
+                onClick={() => updateList.mutate({ status: 'active' })}
               >
                 Активировать
               </button>
@@ -270,7 +219,7 @@ export function PriceListsPage() {
               <button
                 className="text-button"
                 disabled={updateList.isPending}
-                onClick={() => updateList.mutate('draft')}
+                onClick={() => updateList.mutate({ status: 'draft' })}
               >
                 Вернуть в черновики
               </button>
@@ -291,7 +240,24 @@ export function PriceListsPage() {
             className="inline-form price-form"
             onSubmit={(event) => {
               event.preventDefault()
-              addPrice.mutate()
+              addPrice.mutate(
+                {
+                  ...(itemForm.kind === 'service'
+                    ? { serviceId: itemForm.serviceId, garmentTypeId: null }
+                    : { nomenclatureItemId: itemForm.nomenclatureItemId }),
+                  price: String(Math.round(Number(itemForm.price.replace(',', '.')) * 100)),
+                },
+                {
+                  onSuccess: () => {
+                    setItemForm((value) => ({
+                      kind: value.kind,
+                      nomenclatureItemId: '',
+                      serviceId: '',
+                      price: '',
+                    }))
+                  },
+                },
+              )
             }}
           >
             <div
@@ -423,7 +389,23 @@ export function PriceListsPage() {
                   className="price-row-editor"
                   onSubmit={(event) => {
                     event.preventDefault()
-                    updatePrice.mutate()
+                    updatePrice.mutate(
+                      {
+                        itemId: editingPrice.id,
+                        payload: {
+                          price: String(
+                            Math.round(
+                              Number(String(editingPrice.price).replace(',', '.')) * 100,
+                            ),
+                          ),
+                        },
+                      },
+                      {
+                        onSuccess: () => {
+                          setEditingPrice({ id: '', price: '' })
+                        },
+                      },
+                    )
                   }}
                 >
                   <input
