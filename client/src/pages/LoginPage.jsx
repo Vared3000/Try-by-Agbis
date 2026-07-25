@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { useAuth } from '../app/auth-context.js'
+import styles from './LoginPage.module.css'
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Введите email').email('Некорректный email'),
@@ -35,14 +36,14 @@ export function LoginPage() {
   })
 
   return (
-    <main className="login-page">
-      <section className="login-brand">
+    <main className={styles.loginPage}>
+      <section className={styles.loginBrand}>
         <span className="logo-mark">CF</span>
         <p className="eyebrow">CleanFlow ERP</p>
         <h1>Весь процесс химчистки — в одном рабочем пространстве</h1>
         <p>Приёмка, производство, касса и выдача без разрывов между этапами.</p>
       </section>
-      <form className="login-card" onSubmit={submit}>
+      <form className={styles.loginCard} onSubmit={submit}>
         <div>
           <p className="eyebrow">Вход в систему</p>
           <h2>С возвращением</h2>

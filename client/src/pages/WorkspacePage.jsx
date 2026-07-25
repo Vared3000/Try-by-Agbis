@@ -6,6 +6,7 @@ import { apiClient } from '../api/client.js'
 import { useAuth } from '../app/auth-context.js'
 import { ErrorBoundary } from '../components/ErrorBoundary.jsx'
 import { useFinancialReport, useOperationalReport } from '../queries/reports.js'
+import styles from './WorkspacePage.module.css'
 import { money, orderStatusLabel } from './workspace-utils.js'
 
 const CatalogPage = lazy(() =>
@@ -70,9 +71,9 @@ export function WorkspacePage() {
   })
 
   return (
-    <div className="workspace">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
+    <div className={styles.workspace}>
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarBrand}>
           <span className="logo-mark small">CF</span>
           <div>
             <strong>CleanFlow</strong>
@@ -91,7 +92,7 @@ export function WorkspacePage() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-user">
+        <div className={styles.sidebarUser}>
           <span className="avatar">
             {auth.user?.displayName?.slice(0, 1).toUpperCase()}
           </span>
@@ -105,17 +106,17 @@ export function WorkspacePage() {
         </div>
       </aside>
 
-      <main className="content">
-        <header className="topbar">
+      <main className={styles.content}>
+        <header className={styles.topbar}>
           <div>
             <p className="eyebrow">Рабочее пространство</p>
             <h1>{navigation.find(([id]) => id === section)?.[1]}</h1>
           </div>
-          <span className="online-badge">● Система работает</span>
+          <span className={styles.onlineBadge}>● Система работает</span>
         </header>
 
         {(section === 'overview' || section === 'reports') && (
-          <section className="metric-grid">
+          <section className={styles.metricGrid}>
             <Metric
               label="Заказов"
               value={operational.data?.totalOrders ?? '—'}
@@ -145,10 +146,10 @@ export function WorkspacePage() {
                 <h2>Заказы по этапам</h2>
               </div>
             </div>
-            <div className="status-grid">
+            <div className={styles.statusGrid}>
               {Object.entries(operational.data?.byStatus ?? {}).map(([status, count]) => (
                 <button
-                  className="status-card"
+                  className={styles.statusCard}
                   key={status}
                   onClick={() => openOrders(status)}
                 >
@@ -201,13 +202,15 @@ function Metric({ label, value, hint, accent = false, onClick }) {
   )
   return onClick ? (
     <button
-      className={`metric-card metric-button ${accent ? 'accent' : ''}`}
+      className={`${styles.metricCard} ${styles.metricButton} ${accent ? styles.accent : ''}`}
       onClick={onClick}
     >
       {content}
     </button>
   ) : (
-    <article className={`metric-card ${accent ? 'accent' : ''}`}>{content}</article>
+    <article className={`${styles.metricCard} ${accent ? styles.accent : ''}`}>
+      {content}
+    </article>
   )
 }
 

@@ -1,0 +1,181 @@
+.workspace {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 250px 1fr;
+}
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: #173d30;
+  color: white;
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+.sidebarBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.25rem 0.4rem 1.5rem;
+}
+.sidebarBrand div,
+.sidebarUser div {
+  display: grid;
+}
+.sidebarBrand span,
+.sidebarUser span {
+  color: #9fb7ad;
+  font-size: 0.7rem;
+}
+.sidebar nav {
+  display: grid;
+  gap: 0.3rem;
+}
+.sidebar nav button {
+  border: 0;
+  background: transparent;
+  color: #cbd9d3;
+  text-align: left;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+.sidebar nav button:global(.active) {
+  background: #e5ff73;
+  color: #173d30;
+  font-weight: 800;
+}
+.sidebarUser {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.8rem 0.4rem 0;
+  border-top: 1px solid #ffffff1f;
+}
+.sidebarUser button {
+  background: none;
+  border: 0;
+  color: #9fb7ad;
+  font-size: 1.2rem;
+}
+.content {
+  padding: 2rem clamp(1.25rem, 4vw, 4rem);
+  overflow: hidden;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+.topbar h1 {
+  margin: 0.25rem 0 0;
+  font-size: 2.2rem;
+  letter-spacing: -0.04em;
+}
+.onlineBadge {
+  font-size: 0.75rem;
+  background: white;
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  color: #26724f;
+  box-shadow: 0 8px 30px #193c2f10;
+}
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.metricCard {
+  background: white;
+  border: 1px solid #e5ebe7;
+  border-radius: 18px;
+  box-shadow: 0 10px 35px #173d3008;
+  padding: 1.25rem;
+  display: grid;
+  gap: 0.45rem;
+  color: inherit;
+  text-align: left;
+}
+.metricButton {
+  cursor: pointer;
+}
+.metricButton:hover {
+  border-color: #a7b9ad;
+  transform: translateY(-1px);
+}
+.metricCard > span {
+  color: #687a71;
+  font-size: 0.8rem;
+}
+.metricCard strong {
+  font-size: 2rem;
+  letter-spacing: -0.04em;
+}
+.metricCard small {
+  color: #8a9991;
+}
+.accent {
+  background: #e5ff73;
+  border-color: #d7ed70;
+}
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+}
+.statusCard {
+  background: #f5f7f5;
+  border: 1px solid transparent;
+  padding: 1rem;
+  border-radius: 12px;
+  display: grid;
+  gap: 0.25rem;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.statusCard:hover {
+  border-color: #abc0b2;
+  background: #eef4ef;
+}
+.statusCard strong {
+  font-size: 1.4rem;
+}
+.statusCard span {
+  font-size: 0.75rem;
+  color: #708077;
+  text-transform: capitalize;
+}
+
+@media (max-width: 850px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: static;
+    height: auto;
+  }
+  .sidebar nav {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .sidebar nav button {
+    justify-content: center;
+    font-size: 0;
+  }
+  .sidebar nav button span {
+    font-size: 1rem;
+  }
+  .sidebarUser {
+    display: none;
+  }
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+}
