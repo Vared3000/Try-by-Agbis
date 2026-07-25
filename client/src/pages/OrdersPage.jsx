@@ -872,11 +872,6 @@ function OrderEditor({
               </div>
               <details
                 className="order-item-details"
-                open={
-                  measurementMissing || (editable && !item.nomenclatureItemId)
-                    ? true
-                    : undefined
-                }
               >
                 <summary>
                   <span>Детали позиции</span>
