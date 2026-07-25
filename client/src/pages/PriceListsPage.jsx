@@ -17,6 +17,8 @@ const unitLabels = {
 export function PriceListsPage() {
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [showAllStatuses, setShowAllStatuses] = useState(false)
   const [listForm, setListForm] = useState({
     name: '',
     validFrom: new Date().toISOString().slice(0, 10),
@@ -77,6 +79,7 @@ export function PriceListsPage() {
     onSuccess: (row) => {
       setSelectedId(row.id)
       setListForm((value) => ({ ...value, name: '' }))
+      setCreateOpen(false)
       queryClient.invalidateQueries({ queryKey: ['price-lists'] })
     },
   })
@@ -141,82 +144,112 @@ export function PriceListsPage() {
             <h2>Прайс-листы</h2>
           </div>
         </div>
-        <form
-          className="form-grid"
-          onSubmit={(event) => {
-            event.preventDefault()
-            createList.mutate()
-          }}
-        >
-          <label className="field-wide">
-            Название
-            <input
-              required
-              value={listForm.name}
-              onChange={(event) =>
-                setListForm((value) => ({ ...value, name: event.target.value }))
-              }
-              placeholder="Основной прайс"
-            />
-          </label>
-          <label>
-            Действует с
-            <input
-              type="date"
-              required
-              value={listForm.validFrom}
-              onChange={(event) =>
-                setListForm((value) => ({ ...value, validFrom: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            Статус
-            <select
-              value={listForm.status}
-              onChange={(event) =>
-                setListForm((value) => ({ ...value, status: event.target.value }))
-              }
-            >
-              <option value="draft">Черновик</option>
-              <option value="active">Активный</option>
-            </select>
-          </label>
-          <label className="field-wide">
-            Действует до
-            <input
-              type="date"
-              value={listForm.validTo}
-              min={listForm.validFrom}
-              onChange={(event) =>
-                setListForm((value) => ({ ...value, validTo: event.target.value }))
-              }
-            />
-          </label>
-          {createList.error && (
-            <p className="form-error field-wide">{apiError(createList.error)}</p>
-          )}
-          <button className="primary-button field-wide">Создать прайс-лист</button>
-        </form>
+        {!createOpen ? (
+          <button className="primary-button" onClick={() => setCreateOpen(true)}>
+            + Создать прайс-лист
+          </button>
+        ) : (
+          <form
+            className="form-grid"
+            onSubmit={(event) => {
+              event.preventDefault()
+              createList.mutate()
+            }}
+          >
+            <label className="field-wide">
+              Название
+              <input
+                autoFocus
+                required
+                value={listForm.name}
+                onChange={(event) =>
+                  setListForm((value) => ({ ...value, name: event.target.value }))
+                }
+                placeholder="Основной прайс"
+              />
+            </label>
+            <label>
+              Действует с
+              <input
+                type="date"
+                required
+                value={listForm.validFrom}
+                onChange={(event) =>
+                  setListForm((value) => ({ ...value, validFrom: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              Статус
+              <select
+                value={listForm.status}
+                onChange={(event) =>
+                  setListForm((value) => ({ ...value, status: event.target.value }))
+                }
+              >
+                <option value="draft">Черновик</option>
+                <option value="active">Активный</option>
+              </select>
+            </label>
+            <label className="field-wide">
+              Действует до
+              <input
+                type="date"
+                value={listForm.validTo}
+                min={listForm.validFrom}
+                onChange={(event) =>
+                  setListForm((value) => ({ ...value, validTo: event.target.value }))
+                }
+              />
+            </label>
+            {createList.error && (
+              <p className="form-error field-wide">{apiError(createList.error)}</p>
+            )}
+            <div className="modal-actions field-wide">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setCreateOpen(false)}
+              >
+                Отмена
+              </button>
+              <button className="primary-button" disabled={createList.isPending}>
+                {createList.isPending ? 'Создаём…' : 'Создать прайс-лист'}
+              </button>
+            </div>
+          </form>
+        )}
+        <div className="table-toolbar">
+          <strong>Прайс-листы</strong>
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => setShowAllStatuses((value) => !value)}
+          >
+            {showAllStatuses ? 'Только активные' : 'Показать все статусы'}
+          </button>
+        </div>
         <div className="choice-list">
-          {(lists.data ?? []).map((row) => (
-            <button
-              key={row.id}
-              className={effectiveId === row.id ? 'active' : ''}
-              onClick={() => setSelectedId(row.id)}
-            >
-              <span>{row.name}</span>
-              <small>
-                {row.validFrom}
-                {row.validTo ? ` — ${row.validTo}` : ''} ·{' '}
-                {{
-                  draft: 'черновик',
-                  active: 'активный',
-                  inactive: 'неактивный',
-                }[row.status] || row.status}
-              </small>
-            </button>
-          ))}
+          {(lists.data ?? [])
+            .filter((row) => showAllStatuses || row.status === 'active')
+            .map((row) => (
+              <button
+                key={row.id}
+                className={effectiveId === row.id ? 'active' : ''}
+                onClick={() => setSelectedId(row.id)}
+              >
+                <span>{row.name}</span>
+                <small>
+                  {row.validFrom}
+                  {row.validTo ? ` — ${row.validTo}` : ''} ·{' '}
+                  {{
+                    draft: 'черновик',
+                    active: 'активный',
+                    inactive: 'неактивный',
+                  }[row.status] || row.status}
+                </small>
+              </button>
+            ))}
         </div>
       </section>
 
