@@ -13,8 +13,8 @@
     "db:rollback": "node --env-file-if-exists=../.env src/database/migrate.js down",
     "db:seed": "node --env-file-if-exists=../.env src/database/seed.js",
     "user:set-password": "node --env-file-if-exists=../.env src/database/set-user-password.js",
-    "test": "vitest run",
-    "test:db": "node --env-file-if-exists=../.env node_modules/vitest/vitest.mjs run src/tests/auth.integration.test.js",
+    "test": "node --env-file-if-exists=../.env node_modules/vitest/vitest.mjs run",
+    "test:db": "node --env-file-if-exists=../.env node_modules/vitest/vitest.mjs run src/tests/business-workflow.integration.test.js",
     "build": "node --check src/server.js"
   },
   "dependencies": {

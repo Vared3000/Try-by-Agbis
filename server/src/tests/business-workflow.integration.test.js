@@ -15,7 +15,7 @@ import { createLocalFileStorage } from '../modules/files/local-file-storage.js'
 const hasDatabase = Boolean(process.env.DATABASE_URL)
 const integration = describe.skipIf(!hasDatabase)
 
-integration('auth API with PostgreSQL', () => {
+integration('core business workflow API with PostgreSQL (auth, clients, catalog, orders, payments, production, reports)', () => {
   const password = 'IntegrationPassword123'
   const suffix = randomUUID().slice(0, 8)
   const ids = {
