@@ -1,4 +1,5 @@
 import { money, orderStatusLabel } from '../../pages/workspace-utils.js'
+import styles from './OrderListPanel.module.css'
 
 const statusFilters = [
   ['', 'Все'],
@@ -31,14 +32,14 @@ export function OrderListPanel({
         <span>{orders.length} записей</span>
       </div>
 
-      <div className="orders-toolbar">
+      <div className={styles.ordersToolbar}>
         <input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Номер заказа, клиент или телефон"
           aria-label="Поиск заказов"
         />
-        <div className="order-filter-chips" aria-label="Фильтр статусов">
+        <div className={styles.orderFilterChips} aria-label="Фильтр статусов">
           {statusFilters.map(([value, label]) => (
             <button
               key={value || 'all'}
@@ -51,8 +52,8 @@ export function OrderListPanel({
         </div>
       </div>
 
-      <div className="order-list-table">
-        <div className="order-list-head" aria-hidden="true">
+      <div className={styles.orderListTable}>
+        <div className={styles.orderListHead} aria-hidden="true">
           <span>Заказ и клиент</span>
           <span>Срок</span>
           <span>Сумма и статус</span>
@@ -61,11 +62,11 @@ export function OrderListPanel({
           return (
             <button
               key={order.id}
-              className={`order-list-row ${selectedOrderId === order.id ? 'active' : ''}`}
+              className={`${styles.orderListRow} ${selectedOrderId === order.id ? 'active' : ''}`}
               onClick={() => onOpenOrder(order.id)}
               aria-current={selectedOrderId === order.id ? 'true' : undefined}
             >
-              <span className="order-list-main">
+              <span className={styles.orderListMain}>
                 <strong>{order.displayNumber}</strong>
                 <span>
                   {order.client?.fullName || 'Клиент'}
@@ -73,13 +74,13 @@ export function OrderListPanel({
                 </span>
                 <small>{new Date(order.createdAt).toLocaleString('ru-RU')}</small>
               </span>
-              <span className={`order-due ${order.isOverdue ? 'overdue' : ''}`}>
+              <span className={`${styles.orderDue} ${order.isOverdue ? 'overdue' : ''}`}>
                 {order.dueAt
                   ? new Date(order.dueAt).toLocaleDateString('ru-RU')
                   : 'Не указан'}
                 {order.isOverdue && <small>Просрочен</small>}
               </span>
-              <span className="order-list-total">
+              <span className={styles.orderListTotal}>
                 <strong>{money(order.totalAmount)}</strong>
                 <span className={`status-pill status-${order.status}`}>
                   {orderStatusLabel(order.status)}

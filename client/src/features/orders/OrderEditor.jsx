@@ -12,6 +12,7 @@ import {
   remainingOrderItems,
 } from './issue-availability.js'
 import { NomenclatureCombobox } from './NomenclatureCombobox.jsx'
+import styles from './OrderEditor.module.css'
 import { OrderMetaEditor } from './OrderMetaEditor.jsx'
 import {
   ChoiceChecks,
@@ -108,23 +109,27 @@ export function OrderEditor({
   const availableDefects = defectsForNomenclature(selectedPosition, defects)
 
   return (
-    <div className="order-editor">
-      <div className="order-summary">
+    <div className={styles.orderEditor}>
+      <div className={styles.orderSummary}>
         <div>
-          <div className="order-summary-badges">
+          <div className={styles.orderSummaryBadges}>
             <span className="status-pill">{orderStatusLabel(order.status)}</span>
             {order.urgency && order.urgency !== 'normal' && (
-              <span className={`status-pill urgency-${order.urgency}`}>
+              <span
+                className={`status-pill ${order.urgency === 'urgent' ? styles.urgencyUrgent : styles.urgencyExpress}`}
+              >
                 {urgencyLabels[order.urgency]}
               </span>
             )}
             {order.isRework && (
-              <span className="status-pill rework-pill">Повторная обработка</span>
+              <span className={`status-pill ${styles.reworkPill}`}>
+                Повторная обработка
+              </span>
             )}
           </div>
           <h2>{order.displayNumber}</h2>
-          <strong className="order-client-name">{order.client?.fullName}</strong>
-          <div className="order-operational-meta">
+          <strong className={styles.orderClientName}>{order.client?.fullName}</strong>
+          <div className={styles.orderOperationalMeta}>
             <OrderMetaValue
               label="Принят"
               value={`${
@@ -160,22 +165,22 @@ export function OrderEditor({
               value={order.createdBy?.displayName || 'Не указан'}
             />
           </div>
-          {order.notes && <p className="order-summary-notes">{order.notes}</p>}
+          {order.notes && <p className={styles.orderSummaryNotes}>{order.notes}</p>}
           {editable && (
             <button className="text-button" onClick={() => setMetaOpen(true)}>
               Изменить реквизиты заказа
             </button>
           )}
         </div>
-        <div className="order-total">
+        <div className={styles.orderTotal}>
           <span>Итого</span>
           <strong>{money(order.totalAmount)}</strong>
           <small>Оплачено: {money(order.paidAmount)}</small>
-          {debt > 0 && <small className="debt-text">Долг: {money(debt)}</small>}
+          {debt > 0 && <small className={styles.debtText}>Долг: {money(debt)}</small>}
           {!['draft', 'cancelled'].includes(order.status) && (
             <button
               type="button"
-              className="primary-button order-payment-button"
+              className={`primary-button ${styles.orderPaymentButton}`}
               disabled={debt <= 0}
               onClick={() => setPaymentOpen(true)}
             >
@@ -187,7 +192,7 @@ export function OrderEditor({
 
       {editable && (
         <form
-          className="order-item-form"
+          className={styles.orderItemForm}
           onSubmit={handleItemSubmit((values) => {
             addItem.mutate(
               {
@@ -341,7 +346,7 @@ export function OrderEditor({
             </label>
           </div>
           {selectedPosition && (
-            <div className="item-calculation">
+            <div className={styles.itemCalculation}>
               <span>
                 {selectedPosition.unit === 'square_meter'
                   ? measurementComplete
@@ -371,7 +376,7 @@ export function OrderEditor({
         </form>
       )}
 
-      <div className="order-items">
+      <div className={styles.orderItems}>
         {(order.items ?? []).map((item, index) => {
           const measurementUnit = ['square_meter', 'linear_meter'].includes(
             item.nomenclature?.unit,
@@ -385,8 +390,8 @@ export function OrderEditor({
             !['issued', 'cancelled'].includes(item.status)
 
           return (
-            <article key={item.id} className="order-item-card">
-              <div className="order-item-head">
+            <article key={item.id} className={styles.orderItemCard}>
+              <div className={styles.orderItemHead}>
                 <div>
                   <span>Изделие {index + 1}</span>
                   <strong>
@@ -416,10 +421,10 @@ export function OrderEditor({
                         : ''}
                   </small>
                   {measurementMissing && (
-                    <span className="measurement-pending">Ожидает замера</span>
+                    <span className={styles.measurementPending}>Ожидает замера</span>
                   )}
                 </div>
-                <div className="order-item-head-actions">
+                <div className={styles.orderItemHeadActions}>
                   <strong>{money(item.totalAmount)}</strong>
                   {!['draft', 'cancelled'].includes(order.status) && (
                     <>
@@ -455,9 +460,7 @@ export function OrderEditor({
                   )}
                 </div>
               </div>
-              <details
-                className="order-item-details"
-              >
+              <details className={styles.orderItemDetails}>
                 <summary>
                   <span>Детали позиции</span>
                   <small>
@@ -471,10 +474,10 @@ export function OrderEditor({
                       .join(' · ') || 'Размеры, услуги и фотографии'}
                   </small>
                 </summary>
-                <div className="order-item-details-content">
+                <div className={styles.orderItemDetailsContent}>
                   {item.description && <p>{item.description}</p>}
                   {item.nomenclature && (
-                    <div className="item-measurements">
+                    <div className={styles.itemMeasurements}>
                       {item.area && <span>{item.area} м²</span>}
                       {!item.area && item.quantity && (
                         <span>
@@ -495,27 +498,27 @@ export function OrderEditor({
                     </div>
                   )}
                   {measurementMissing && (
-                    <p className="measurement-pending-note">
+                    <p className={styles.measurementPendingNote}>
                       Размер пока неизвестен. Предварительная стоимость позиции —{' '}
                       {money(0)}.
                     </p>
                   )}
                   {canMeasure && <MeasurementEditor item={item} onChanged={onChanged} />}
                   {!!item.defects?.length && (
-                    <div className="item-flags">
+                    <div className={styles.itemFlags}>
                       <strong>Дефекты:</strong>{' '}
                       {item.defects.map((row) => row.defect?.name).join(', ')}
                     </div>
                   )}
                   {!!item.contaminations?.length && (
-                    <div className="item-flags">
+                    <div className={styles.itemFlags}>
                       <strong>Загрязнения:</strong>{' '}
                       {item.contaminations
                         .map((row) => row.contamination?.name)
                         .join(', ')}
                     </div>
                   )}
-                  <div className="service-lines">
+                  <div className={styles.serviceLines}>
                     {(item.services ?? []).map((service) => (
                       <div key={service.id}>
                         <span>
@@ -525,7 +528,7 @@ export function OrderEditor({
                             {Number(service.quantity).toLocaleString('ru-RU')}
                           </small>
                         </span>
-                        <span className="service-line-actions">
+                        <span className={styles.serviceLineActions}>
                           <strong>{money(service.totalPrice)}</strong>
                           {editable && (
                             <RemoveServiceButton
@@ -574,7 +577,7 @@ export function OrderEditor({
       )}
       {actionError && <p className="form-error">{actionError}</p>}
       {issueActionsAvailable && !!remainingItems.length && (
-        <section className="issue-panel">
+        <section className={styles.issuePanel}>
           <div>
             <p className="eyebrow">Выдача</p>
             <h3>
@@ -624,7 +627,7 @@ export function OrderEditor({
           {issueOrder.error && <p className="form-error">{apiError(issueOrder.error)}</p>}
         </section>
       )}
-      <div className="order-actions">
+      <div className={styles.orderActions}>
         <SaveOrderButton
           changeToken={order.version}
           disabled={
