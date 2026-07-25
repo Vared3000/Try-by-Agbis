@@ -1,53 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { apiClient } from '../api/client.js'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
+import { useClientSearch } from '../queries/clients.js'
+import { useCreateClientWithAddress } from '../mutations/clients.js'
 import { apiError } from './workspace-utils.js'
 
 export function ClientPickerModal({ onClose, onSelect }) {
-  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ fullName: '', phone: '', email: '', address: '' })
   const deferredSearch = useDebouncedValue(search.trim())
   const normalizedSearch = search.trim()
-  const clients = useQuery({
-    queryKey: ['client-picker', deferredSearch],
-    queryFn: async () =>
-      (
-        await apiClient.get('/clients', {
-          params: { search: deferredSearch || undefined, pageSize: 50 },
-        })
-      ).data.data,
-    enabled: deferredSearch.length >= 2,
-  })
+  const clients = useClientSearch(deferredSearch)
   const searchReady =
     normalizedSearch.length >= 2 &&
     normalizedSearch === deferredSearch &&
     clients.isSuccess &&
     !clients.isFetching
-  const createClient = useMutation({
-    mutationFn: async () => {
-      const client = (
-        await apiClient.post('/clients', {
-          fullName: form.fullName,
-          phone: form.phone || null,
-          email: form.email || null,
-        })
-      ).data.data
-      await apiClient.post(`/clients/${client.id}/addresses`, {
-        address: form.address,
-        isPrimary: true,
-      })
-      return client
-    },
-    onSuccess: (client) => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] })
-      onSelect(client)
-      onClose()
-    },
-  })
+  const createClient = useCreateClientWithAddress()
 
   const startCreating = () => {
     const looksLikePhone = /^[+\d()\s-]{5,}$/.test(search.trim())
@@ -163,7 +133,12 @@ export function ClientPickerModal({ onClose, onSelect }) {
             className="modal-form"
             onSubmit={(event) => {
               event.preventDefault()
-              createClient.mutate()
+              createClient.mutate(form, {
+                onSuccess: (client) => {
+                  onSelect(client)
+                  onClose()
+                },
+              })
             }}
           >
             <button

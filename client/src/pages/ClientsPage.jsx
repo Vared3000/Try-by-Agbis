@@ -1,10 +1,10 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { apiClient } from '../api/client.js'
 import { ClientProfilePanel } from '../features/clients/ClientProfilePanel.jsx'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
+import { useClient, useClientOrders, useClients } from '../queries/clients.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
 import { apiError } from './workspace-utils.js'
 
@@ -16,26 +16,9 @@ export function ClientsPage() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
   const [createOpen, setCreateOpen] = useState(false)
-  const clients = useQuery({
-    queryKey: ['clients-page', debouncedSearch],
-    queryFn: async () =>
-      (
-        await apiClient.get('/clients', {
-          params: { search: debouncedSearch || undefined, pageSize: 100 },
-        })
-      ).data.data,
-  })
-  const client = useQuery({
-    queryKey: ['client', selectedClientId],
-    queryFn: async () => (await apiClient.get(`/clients/${selectedClientId}`)).data.data,
-    enabled: Boolean(selectedClientId),
-  })
-  const clientOrders = useQuery({
-    queryKey: ['client-orders', selectedClientId],
-    queryFn: async () =>
-      (await apiClient.get(`/clients/${selectedClientId}/orders`)).data.data,
-    enabled: Boolean(selectedClientId),
-  })
+  const clients = useClients(debouncedSearch)
+  const client = useClient(selectedClientId)
+  const clientOrders = useClientOrders(selectedClientId)
 
   return (
     <div className="stack">
@@ -126,7 +109,6 @@ export function ClientsPage() {
         <ClientPickerModal
           onClose={() => setCreateOpen(false)}
           onSelect={(client) => {
-            queryClient.invalidateQueries({ queryKey: ['clients-page'] })
             queryClient.invalidateQueries({ queryKey: ['clients'] })
             navigate(`/clients/${client.id}`)
           }}

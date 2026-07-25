@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { apiClient } from '../api/client.js'
 import { useCatalog } from '../queries/catalog.js'
 import { useNomenclature } from '../queries/nomenclature.js'
+import { clientsKey, useClient, useClients } from '../queries/clients.js'
 import { usePriceList, usePriceLists } from '../queries/price-lists.js'
 import {
   ChoiceChecks,
@@ -92,15 +93,8 @@ export function OrdersPage() {
     queryKey: ['auth-context'],
     queryFn: async () => (await apiClient.get('/auth/context')).data.data,
   })
-  const clients = useQuery({
-    queryKey: ['clients'],
-    queryFn: async () => (await apiClient.get('/clients?pageSize=100')).data.data,
-  })
-  const requestedClient = useQuery({
-    queryKey: ['client', requestedClientId],
-    queryFn: async () => (await apiClient.get(`/clients/${requestedClientId}`)).data.data,
-    enabled: Boolean(requestedClientId),
-  })
+  const clients = useClients()
+  const requestedClient = useClient(requestedClientId)
   const orders = useQuery({
     queryKey: ['orders', debouncedOrderSearch, orderStatus],
     queryFn: async () => {
@@ -415,7 +409,7 @@ export function OrdersPage() {
         <ClientPickerModal
           onClose={() => setClientPickerOpen(false)}
           onSelect={(client) => {
-            queryClient.setQueryData(['clients'], (current = []) => {
+            queryClient.setQueryData(clientsKey(), (current = []) => {
               if (current.some((row) => row.id === client.id)) return current
               return [client, ...current]
             })

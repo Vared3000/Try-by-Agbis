@@ -1,11 +1,9 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { apiClient } from '../../api/client.js'
 import { apiError } from '../../pages/workspace-utils.js'
+import { useUpdateClientWithAddress } from '../../mutations/clients.js'
 
 export function ClientEditModal({ client, onClose }) {
-  const queryClient = useQueryClient()
   const primaryAddress =
     client.addresses?.find((address) => address.isPrimary) ?? client.addresses?.[0]
   const [form, setForm] = useState({
@@ -16,29 +14,7 @@ export function ClientEditModal({ client, onClose }) {
     address: primaryAddress?.address || '',
   })
 
-  const save = useMutation({
-    mutationFn: async () => {
-      await apiClient.patch(`/clients/${client.id}`, {
-        fullName: form.fullName,
-        phone: form.phone || null,
-        email: form.email || null,
-        notes: form.notes || null,
-      })
-      const trimmedAddress = form.address.trim()
-      if (trimmedAddress !== (primaryAddress?.address ?? '')) {
-        await apiClient.post(`/clients/${client.id}/addresses`, {
-          address: trimmedAddress,
-          isPrimary: true,
-        })
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['client', client.id] })
-      queryClient.invalidateQueries({ queryKey: ['clients-page'] })
-      queryClient.invalidateQueries({ queryKey: ['clients'] })
-      onClose()
-    },
-  })
+  const save = useUpdateClientWithAddress(client.id)
 
   return (
     <div
@@ -67,7 +43,10 @@ export function ClientEditModal({ client, onClose }) {
           className="modal-form"
           onSubmit={(event) => {
             event.preventDefault()
-            save.mutate()
+            save.mutate(
+              { ...form, previousAddress: primaryAddress?.address ?? '' },
+              { onSuccess: onClose },
+            )
           }}
         >
           <label>
