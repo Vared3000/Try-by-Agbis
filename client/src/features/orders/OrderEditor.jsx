@@ -1,6 +1,9 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { apiError, money, orderStatusLabel } from '../../pages/workspace-utils.js'
+import { orderItemSchema } from '../../schemas/order-items.js'
 import { defectsForNomenclature } from './defect-options.js'
 import { ItemStatusActions } from './ItemStatusActions.jsx'
 import {
@@ -39,8 +42,6 @@ export function OrderEditor({
   prices,
   priceLists,
   itemSelectRef,
-  itemForm,
-  setItemForm,
   addItem,
   updateOrder,
   removeItem,
@@ -55,6 +56,27 @@ export function OrderEditor({
   const [issueReason, setIssueReason] = useState('')
   const [metaOpen, setMetaOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
+  const {
+    register: registerItem,
+    handleSubmit: handleItemSubmit,
+    reset: resetItemForm,
+    setValue: setItemFormValue,
+    control: itemFormControl,
+  } = useForm({
+    resolver: zodResolver(orderItemSchema),
+    defaultValues: {
+      nomenclatureItemId: '',
+      materialId: '',
+      colorId: '',
+      description: '',
+      quantity: '1',
+      length: '',
+      width: '',
+      defectIds: [],
+      contaminationIds: [],
+    },
+  })
+  const itemForm = useWatch({ control: itemFormControl })
   if (loading || !order) return <div className="empty-state compact">Загружаем…</div>
   const editable = order.status === 'draft'
   const readyItems = order.items?.filter((item) => item.status === 'ready') ?? []
@@ -163,23 +185,22 @@ export function OrderEditor({
       {editable && (
         <form
           className="order-item-form"
-          onSubmit={(event) => {
-            event.preventDefault()
+          onSubmit={handleItemSubmit((values) => {
             addItem.mutate(
               {
-                nomenclatureItemId: itemForm.nomenclatureItemId,
-                materialId: itemForm.materialId || null,
-                colorId: itemForm.colorId || null,
-                description: itemForm.description || null,
-                quantity: itemForm.quantity || undefined,
-                length: itemForm.length || undefined,
-                width: itemForm.width || undefined,
-                defectIds: itemForm.defectIds,
-                contaminationIds: itemForm.contaminationIds,
+                nomenclatureItemId: values.nomenclatureItemId,
+                materialId: values.materialId || null,
+                colorId: values.colorId || null,
+                description: values.description || null,
+                quantity: values.quantity || undefined,
+                length: values.length || undefined,
+                width: values.width || undefined,
+                defectIds: values.defectIds,
+                contaminationIds: values.contaminationIds,
               },
               {
                 onSuccess: () => {
-                  setItemForm({
+                  resetItemForm({
                     nomenclatureItemId: '',
                     materialId: '',
                     colorId: '',
@@ -193,37 +214,50 @@ export function OrderEditor({
                 },
               },
             )
-          }}
+          })}
         >
           <div className="form-grid">
-            <NomenclatureCombobox
-              ref={itemSelectRef}
-              items={nomenclature}
-              value={itemForm.nomenclatureItemId}
-              onChange={(nomenclatureItemId) =>
-                setItemForm((value) => ({
-                  ...value,
-                  nomenclatureItemId,
-                  quantity: '1',
-                  length: '',
-                  width: '',
-                  defectIds: [],
-                }))
-              }
+            <Controller
+              control={itemFormControl}
+              name="nomenclatureItemId"
+              render={({ field }) => (
+                <NomenclatureCombobox
+                  ref={itemSelectRef}
+                  items={nomenclature}
+                  value={field.value}
+                  onChange={(nomenclatureItemId) => {
+                    field.onChange(nomenclatureItemId)
+                    setItemFormValue('quantity', '1')
+                    setItemFormValue('length', '')
+                    setItemFormValue('width', '')
+                    setItemFormValue('defectIds', [])
+                  }}
+                />
+              )}
             />
-            <ChoiceChecks
-              title="Дефекты при приёмке"
-              rows={availableDefects}
-              selected={itemForm.defectIds}
-              onChange={(defectIds) => setItemForm((value) => ({ ...value, defectIds }))}
+            <Controller
+              control={itemFormControl}
+              name="defectIds"
+              render={({ field }) => (
+                <ChoiceChecks
+                  title="Дефекты при приёмке"
+                  rows={availableDefects}
+                  selected={field.value}
+                  onChange={field.onChange}
+                />
+              )}
             />
-            <ChoiceChecks
-              title="Загрязнения"
-              rows={contaminations}
-              selected={itemForm.contaminationIds}
-              onChange={(contaminationIds) =>
-                setItemForm((value) => ({ ...value, contaminationIds }))
-              }
+            <Controller
+              control={itemFormControl}
+              name="contaminationIds"
+              render={({ field }) => (
+                <ChoiceChecks
+                  title="Загрязнения"
+                  rows={contaminations}
+                  selected={field.value}
+                  onChange={field.onChange}
+                />
+              )}
             />
             {selectedPosition?.unit === 'square_meter' && (
               <>
@@ -233,13 +267,7 @@ export function OrderEditor({
                     type="number"
                     min="0.001"
                     step="0.001"
-                    value={itemForm.length}
-                    onChange={(event) =>
-                      setItemForm((value) => ({
-                        ...value,
-                        length: event.target.value,
-                      }))
-                    }
+                    {...registerItem('length')}
                   />
                 </label>
                 <label>
@@ -248,13 +276,7 @@ export function OrderEditor({
                     type="number"
                     min="0.001"
                     step="0.001"
-                    value={itemForm.width}
-                    onChange={(event) =>
-                      setItemForm((value) => ({
-                        ...value,
-                        width: event.target.value,
-                      }))
-                    }
+                    {...registerItem('width')}
                   />
                 </label>
                 <p className="form-hint field-wide">
@@ -266,18 +288,7 @@ export function OrderEditor({
             {selectedPosition?.unit === 'linear_meter' && (
               <label className="field-wide">
                 Длина, пог. м
-                <input
-                  type="number"
-                  min="0.001"
-                  step="0.001"
-                  value={itemForm.length}
-                  onChange={(event) =>
-                    setItemForm((value) => ({
-                      ...value,
-                      length: event.target.value,
-                    }))
-                  }
-                />
+                <input type="number" min="0.001" step="0.001" {...registerItem('length')} />
                 <small>
                   Можно оставить пустым и указать длину после фактического замера.
                 </small>
@@ -292,27 +303,13 @@ export function OrderEditor({
                     type="number"
                     min={selectedPosition.unit === 'piece' ? '1' : '0.001'}
                     step={selectedPosition.unit === 'piece' ? '1' : '0.001'}
-                    value={itemForm.quantity}
-                    onChange={(event) =>
-                      setItemForm((value) => ({
-                        ...value,
-                        quantity: event.target.value,
-                      }))
-                    }
+                    {...registerItem('quantity')}
                   />
                 </label>
               )}
             <label>
               Материал
-              <select
-                value={itemForm.materialId}
-                onChange={(event) =>
-                  setItemForm((value) => ({
-                    ...value,
-                    materialId: event.target.value,
-                  }))
-                }
-              >
+              <select {...registerItem('materialId')}>
                 <option value="">Не указан</option>
                 {materials.map((row) => (
                   <option key={row.id} value={row.id}>
@@ -323,15 +320,7 @@ export function OrderEditor({
             </label>
             <label>
               Цвет
-              <select
-                value={itemForm.colorId}
-                onChange={(event) =>
-                  setItemForm((value) => ({
-                    ...value,
-                    colorId: event.target.value,
-                  }))
-                }
-              >
+              <select {...registerItem('colorId')}>
                 <option value="">Не указан</option>
                 {colors.map((row) => (
                   <option key={row.id} value={row.id}>
@@ -343,13 +332,7 @@ export function OrderEditor({
             <label className="field-wide">
               Описание и особенности
               <input
-                value={itemForm.description}
-                onChange={(event) =>
-                  setItemForm((value) => ({
-                    ...value,
-                    description: event.target.value,
-                  }))
-                }
+                {...registerItem('description')}
                 placeholder="Марка, повреждения, комментарий"
               />
             </label>

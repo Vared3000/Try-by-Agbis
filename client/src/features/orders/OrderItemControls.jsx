@@ -1,9 +1,12 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { apiError } from '../../pages/workspace-utils.js'
 import { useDeleteFile, useUploadFile } from '../../mutations/files.js'
 import { useUpdateOrderItemMeasurements } from '../../mutations/measurements.js'
 import { useAddOrderItemService, useRemoveOrderItemService } from '../../mutations/orders.js'
+import { measurementSchema, serviceAdderSchema } from '../../schemas/order-items.js'
 import { getFileBlob } from '../../services/files.js'
 import { availableServicePrices } from './service-options.js'
 import { ServiceCombobox } from './ServiceCombobox.jsx'
@@ -111,8 +114,15 @@ export function MeasurementEditor({ item, onChanged }) {
   const isSquareMeter = item.nomenclature?.unit === 'square_meter'
   const measured = isSquareMeter ? Boolean(item.area) : Boolean(item.quantity)
   const [editing, setEditing] = useState(!measured)
-  const [length, setLength] = useState(item.length ?? '')
-  const [width, setWidth] = useState(item.width ?? '')
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(measurementSchema),
+    defaultValues: { length: item.length ?? '', width: item.width ?? '' },
+  })
   const saveMeasurement = useUpdateOrderItemMeasurements(item.id, {
     onSuccess: () => {
       setEditing(false)
@@ -135,13 +145,12 @@ export function MeasurementEditor({ item, onChanged }) {
   return (
     <form
       className="measurement-editor"
-      onSubmit={(event) => {
-        event.preventDefault()
+      onSubmit={handleSubmit((values) => {
         saveMeasurement.mutate({
-          length,
-          width: isSquareMeter ? width : undefined,
+          length: values.length,
+          width: isSquareMeter ? values.width : undefined,
         })
-      }}
+      })}
     >
       <div>
         <strong>{measured ? 'Корректировка замера' : 'Внести замер'}</strong>
@@ -149,26 +158,13 @@ export function MeasurementEditor({ item, onChanged }) {
       </div>
       <label>
         Длина, м
-        <input
-          required
-          type="number"
-          min="0.001"
-          step="0.001"
-          value={length}
-          onChange={(event) => setLength(event.target.value)}
-        />
+        <input type="number" min="0.001" step="0.001" {...register('length')} />
+        {errors.length && <small className="field-error">{errors.length.message}</small>}
       </label>
       {isSquareMeter && (
         <label>
           Ширина, м
-          <input
-            required
-            type="number"
-            min="0.001"
-            step="0.001"
-            value={width}
-            onChange={(event) => setWidth(event.target.value)}
-          />
+          <input required type="number" min="0.001" step="0.001" {...register('width')} />
         </label>
       )}
       <div className="measurement-actions">
@@ -177,8 +173,7 @@ export function MeasurementEditor({ item, onChanged }) {
             type="button"
             className="secondary-button"
             onClick={() => {
-              setLength(item.length ?? '')
-              setWidth(item.width ?? '')
+              reset({ length: item.length ?? '', width: item.width ?? '' })
               setEditing(false)
             }}
           >
@@ -197,17 +192,24 @@ export function MeasurementEditor({ item, onChanged }) {
 }
 
 export function ServiceAdder({ item, prices, onChanged }) {
-  const [serviceId, setServiceId] = useState('')
-  const [quantity, setQuantity] = useState('1')
   const options = availableServicePrices(item, prices)
   const services = options.map((price) => ({
     ...price.service,
     price: price.price,
   }))
+  const {
+    control,
+    handleSubmit,
+    reset,
+    register,
+  } = useForm({
+    resolver: zodResolver(serviceAdderSchema),
+    defaultValues: { serviceId: '', quantity: '1' },
+  })
+  const serviceId = useWatch({ control, name: 'serviceId' })
   const addService = useAddOrderItemService(item.id, {
     onSuccess: () => {
-      setServiceId('')
-      setQuantity('1')
+      reset({ serviceId: '', quantity: '1' })
       onChanged()
     },
   })
@@ -215,31 +217,29 @@ export function ServiceAdder({ item, prices, onChanged }) {
   return (
     <form
       className="service-adder"
-      onSubmit={(event) => {
-        event.preventDefault()
-        addService.mutate({ serviceId, quantity })
-      }}
+      onSubmit={handleSubmit((values) => {
+        addService.mutate(values)
+      })}
     >
       <div className="service-adder-heading field-wide">
         <strong>Добавить услугу</strong>
         <small>Например, пятновыведение, пропитку или мелкий ремонт.</small>
       </div>
-      <ServiceCombobox
-        items={services}
-        label="Дополнительная услуга"
-        value={serviceId}
-        onChange={setServiceId}
+      <Controller
+        control={control}
+        name="serviceId"
+        render={({ field }) => (
+          <ServiceCombobox
+            items={services}
+            label="Дополнительная услуга"
+            value={field.value}
+            onChange={field.onChange}
+          />
+        )}
       />
       <label>
         Количество
-        <input
-          required
-          min="0.001"
-          step="0.001"
-          type="number"
-          value={quantity}
-          onChange={(event) => setQuantity(event.target.value)}
-        />
+        <input min="0.001" step="0.001" type="number" {...register('quantity')} />
       </label>
       <button className="secondary-button" disabled={!serviceId || addService.isPending}>
         {addService.isPending ? 'Добавляем…' : 'Добавить услугу'}

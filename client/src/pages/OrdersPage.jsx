@@ -73,17 +73,6 @@ export function OrdersPage() {
     },
   })
   const orderForm = useWatch({ control: orderFormControl })
-  const [itemForm, setItemForm] = useState({
-    nomenclatureItemId: '',
-    materialId: '',
-    colorId: '',
-    description: '',
-    quantity: '1',
-    length: '',
-    width: '',
-    defectIds: [],
-    contaminationIds: [],
-  })
   const [actionError, setActionError] = useState('')
 
   const context = useAuthContext()
@@ -207,8 +196,6 @@ export function OrdersPage() {
             prices={prices.data?.items ?? []}
             priceLists={activePriceLists}
             itemSelectRef={itemSelectRef}
-            itemForm={itemForm}
-            setItemForm={setItemForm}
             addItem={addItem}
             updateOrder={updateOrder}
             removeItem={removeItem}
