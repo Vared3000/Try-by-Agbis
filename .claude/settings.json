@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm lint*)",
+      "Bash(npx eslint *)",
+      "Bash(pnpm --recursive test*)",
+      "Bash(pnpm --recursive --if-present test*)",
+      "Bash(npx vitest run *)",
+      "Bash(node --env-file-if-exists=../.env node_modules/vitest/vitest.mjs run *)"
+    ]
+  }
+}
