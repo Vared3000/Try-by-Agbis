@@ -1,13 +1,8 @@
-import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { apiClient } from '../../api/client.js'
 import { apiError, money } from '../../pages/workspace-utils.js'
-import {
-  findReceptionWorkplace,
-  kopecksToRubles,
-  rublesToKopecks,
-} from './payment-utils.js'
+import { useCreatePayment } from '../../mutations/payments.js'
+import { kopecksToRubles } from './payment-utils.js'
 
 const methodLabels = {
   cash: 'наличными',
@@ -19,58 +14,7 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
   const [amount, setAmount] = useState(kopecksToRubles(debt))
   const [method, setMethod] = useState('')
   const [localError, setLocalError] = useState('')
-  const payment = useMutation({
-    mutationFn: async () => {
-      const amountInKopecks = rublesToKopecks(amount)
-      if (BigInt(amountInKopecks) > BigInt(debt)) {
-        throw new Error('Сумма оплаты превышает долг по заказу')
-      }
-
-      let cashShiftId = null
-      if (method === 'cash') {
-        const currentShift = (
-          await apiClient.get('/cash-shifts/current', {
-            params: { branchId: order.branchId },
-          })
-        ).data.data
-        if (currentShift) {
-          cashShiftId = currentShift.id
-        } else {
-          const workplace = findReceptionWorkplace(branches, order)
-          if (!workplace) {
-            throw new Error('Для наличной оплаты не найдено рабочее место приёмки')
-          }
-          const openedShift = (
-            await apiClient.post('/cash-shifts', {
-              branchId: order.branchId,
-              workplaceId: workplace.id,
-              openingAmount: '0',
-            })
-          ).data.data
-          cashShiftId = openedShift.id
-        }
-      }
-
-      return (
-        await apiClient.post(
-          `/orders/${order.id}/payments`,
-          {
-            amount: amountInKopecks,
-            method,
-            cashShiftId,
-          },
-          { headers: { 'Idempotency-Key': crypto.randomUUID() } },
-        )
-      ).data.data
-    },
-    onSuccess: async () => {
-      await onPaid()
-      onClose()
-    },
-    onError: (error) => {
-      setLocalError(error.response ? apiError(error) : error.message)
-    },
-  })
+  const payment = useCreatePayment(order, branches)
 
   return (
     <div
@@ -107,7 +51,18 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
           onSubmit={(event) => {
             event.preventDefault()
             setLocalError('')
-            payment.mutate()
+            payment.mutate(
+              { amount, method, debt },
+              {
+                onSuccess: async () => {
+                  await onPaid()
+                  onClose()
+                },
+                onError: (error) => {
+                  setLocalError(error.response ? apiError(error) : error.message)
+                },
+              },
+            )
           }}
         >
           <div className="payment-summary">

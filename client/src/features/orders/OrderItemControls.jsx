@@ -3,23 +3,15 @@ import { useEffect, useState } from 'react'
 
 import { apiClient } from '../../api/client.js'
 import { apiError } from '../../pages/workspace-utils.js'
+import { useDeleteFile, useUploadFile } from '../../mutations/files.js'
+import { useUpdateOrderItemMeasurements } from '../../mutations/measurements.js'
+import { getFileBlob } from '../../services/files.js'
 import { availableServicePrices } from './service-options.js'
 import { ServiceCombobox } from './ServiceCombobox.jsx'
 
 export function ItemPhotos({ item, editable, onChanged }) {
-  const upload = useMutation({
-    mutationFn: (file) => {
-      const formData = new FormData()
-      formData.append('orderItemId', item.id)
-      formData.append('file', file)
-      return apiClient.post('/files', formData)
-    },
-    onSuccess: onChanged,
-  })
-  const remove = useMutation({
-    mutationFn: (fileId) => apiClient.delete(`/files/${fileId}`),
-    onSuccess: onChanged,
-  })
+  const upload = useUploadFile(item.id, { onSuccess: onChanged })
+  const remove = useDeleteFile({ onSuccess: onChanged })
 
   return (
     <div className="item-photos">
@@ -71,10 +63,9 @@ function ProtectedImage({ file }) {
   useEffect(() => {
     let active = true
     let objectUrl = ''
-    apiClient
-      .get(`/files/${file.id}`, { responseType: 'blob' })
-      .then((response) => {
-        objectUrl = URL.createObjectURL(response.data)
+    getFileBlob(file.id)
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob)
         if (active) setSource(objectUrl)
       })
       .catch(() => {})
@@ -123,12 +114,7 @@ export function MeasurementEditor({ item, onChanged }) {
   const [editing, setEditing] = useState(!measured)
   const [length, setLength] = useState(item.length ?? '')
   const [width, setWidth] = useState(item.width ?? '')
-  const saveMeasurement = useMutation({
-    mutationFn: () =>
-      apiClient.patch(`/order-items/${item.id}/measurements`, {
-        length,
-        width: isSquareMeter ? width : undefined,
-      }),
+  const saveMeasurement = useUpdateOrderItemMeasurements(item.id, {
     onSuccess: () => {
       setEditing(false)
       onChanged()
@@ -152,7 +138,10 @@ export function MeasurementEditor({ item, onChanged }) {
       className="measurement-editor"
       onSubmit={(event) => {
         event.preventDefault()
-        saveMeasurement.mutate()
+        saveMeasurement.mutate({
+          length,
+          width: isSquareMeter ? width : undefined,
+        })
       }}
     >
       <div>
