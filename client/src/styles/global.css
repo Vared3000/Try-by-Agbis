@@ -803,15 +803,49 @@ textarea:focus {
   margin-top: 1rem;
 }
 .chip-list > span {
-  padding: 0.6rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
   border: 1px solid #e1e8e4;
   border-radius: 10px;
   background: #f7f9f7;
   font-size: 0.82rem;
 }
+.chip-list > span.active {
+  border-color: #1e5a45;
+  background: #eaf3ee;
+}
 .chip-list code {
   color: #527064;
   margin-right: 0.3rem;
+}
+.chip-list .link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.chip-list .link-button:hover {
+  text-decoration: underline;
+}
+.chip-remove {
+  border: 0;
+  background: none;
+  padding: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  line-height: 1;
+  border-radius: 999px;
+  color: #8a988f;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.chip-remove:hover {
+  background: #e1e8e4;
+  color: #17231d;
 }
 .choice-list {
   display: grid;
