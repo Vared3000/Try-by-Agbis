@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { money, orderStatusLabel } from '../../pages/workspace-utils.js'
 import { ClientEditModal } from './ClientEditModal.jsx'
+import styles from './ClientProfilePanel.module.css'
 
 const finalStatuses = new Set(['issued', 'cancelled'])
 
@@ -38,9 +39,9 @@ export function ClientProfilePanel({
   const primaryAddress = client.addresses?.find((address) => address.isPrimary)
 
   return (
-    <section className="panel client-profile">
-      <div className="client-profile-head">
-        <div className="client-profile-identity">
+    <section className={`panel ${styles.clientProfile}`}>
+      <div className={styles.clientProfileHead}>
+        <div className={styles.clientProfileIdentity}>
           <span className="avatar">{client.fullName.slice(0, 1).toUpperCase()}</span>
           <div>
             <p className="eyebrow">Карточка клиента</p>
@@ -53,7 +54,7 @@ export function ClientProfilePanel({
         </button>
       </div>
 
-      <div className="client-profile-actions">
+      <div className={styles.clientProfileActions}>
         <button className="primary-button" onClick={onNewOrder}>
           + Новый заказ этому клиенту
         </button>
@@ -67,7 +68,7 @@ export function ClientProfilePanel({
         </button>
       </div>
 
-      <dl className="client-contact-grid">
+      <dl className={styles.clientContactGrid}>
         <div>
           <dt>Телефон</dt>
           <dd>{client.phone || 'Не указан'}</dd>
@@ -88,7 +89,7 @@ export function ClientProfilePanel({
         )}
       </dl>
 
-      <div className="client-metrics">
+      <div className={styles.clientMetrics}>
         <div>
           <span>Всего заказов</span>
           <strong>{orders.length}</strong>
@@ -103,7 +104,7 @@ export function ClientProfilePanel({
         </div>
       </div>
 
-      <div className="client-history-head">
+      <div className={styles.clientHistoryHead}>
         <div>
           <p className="eyebrow">История</p>
           <h3>Заказы клиента</h3>
@@ -111,11 +112,11 @@ export function ClientProfilePanel({
         <span>{orders.length} записей</span>
       </div>
 
-      <div className="client-order-history">
+      <div className={styles.clientOrderHistory}>
         {orders.map((order) => (
           <button
             key={order.id}
-            className="client-order-row"
+            className={styles.clientOrderRow}
             onClick={() => onOpenOrder(order.id)}
           >
             <span>
@@ -130,7 +131,7 @@ export function ClientProfilePanel({
                   : 'Без срока'}
               </small>
             </span>
-            <span className="client-order-amount">
+            <span className={styles.clientOrderAmount}>
               <strong>{money(order.totalAmount)}</strong>
               <span className={`status-pill status-${order.status}`}>
                 {orderStatusLabel(order.status)}

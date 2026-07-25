@@ -1,0 +1,84 @@
+.clientWorkspace {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.7fr) minmax(520px, 1.3fr);
+  gap: 1rem;
+  align-items: start;
+}
+.clientDirectory {
+  padding: 0;
+  overflow: hidden;
+}
+.clientDirectory :global(.table-toolbar) {
+  margin: 0;
+  padding: 1rem;
+  border-bottom: 1px solid #e5ece8;
+}
+.clientList {
+  display: grid;
+  max-height: calc(100vh - 270px);
+  overflow-y: auto;
+}
+.clientListRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+  width: 100%;
+  min-height: 68px;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-bottom: 1px solid #edf1ee;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.clientListRow:hover,
+.clientListRow:global(.active) {
+  background: #f2f8f4;
+}
+.clientListRow:global(.active) {
+  box-shadow: inset 3px 0 #2b6d53;
+}
+.clientListRow > span:nth-child(2) {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.clientListRow small {
+  overflow: hidden;
+  color: #7a8981;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.clientListRow > b {
+  color: #759084;
+  font-size: 1.25rem;
+}
+.clientProfilePlaceholder {
+  display: grid;
+  min-height: 360px;
+  place-items: center;
+  align-content: center;
+  color: #77877e;
+  text-align: center;
+}
+.clientProfilePlaceholder > span {
+  color: #2d6b53;
+  font-size: 2.5rem;
+}
+.clientProfilePlaceholder h2 {
+  margin: 0.5rem 0 0;
+}
+.clientProfilePlaceholder p {
+  max-width: 420px;
+}
+
+@media (max-width: 850px) {
+  .clientWorkspace {
+    grid-template-columns: 1fr;
+  }
+  .clientList {
+    max-height: 420px;
+  }
+}

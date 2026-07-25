@@ -6,6 +6,7 @@ import { ClientProfilePanel } from '../features/clients/ClientProfilePanel.jsx'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { useClient, useClientOrders, useClients } from '../queries/clients.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
+import styles from './ClientsPage.module.css'
 import { apiError } from './workspace-utils.js'
 
 export function ClientsPage() {
@@ -35,8 +36,8 @@ export function ClientsPage() {
         </div>
       </section>
 
-      <div className="client-workspace">
-        <section className="panel client-directory">
+      <div className={styles.clientWorkspace}>
+        <section className={`panel ${styles.clientDirectory}`}>
           <div className="table-toolbar">
             <input
               autoFocus
@@ -47,11 +48,11 @@ export function ClientsPage() {
             />
             <span>{clients.data?.length ?? 0} клиентов</span>
           </div>
-          <div className="client-list">
+          <div className={styles.clientList}>
             {(clients.data ?? []).map((clientRow) => (
               <button
                 key={clientRow.id}
-                className={`client-list-row ${
+                className={`${styles.clientListRow} ${
                   selectedClientId === clientRow.id ? 'active' : ''
                 }`}
                 onClick={() => navigate(`/clients/${clientRow.id}`)}
@@ -97,7 +98,7 @@ export function ClientsPage() {
             onOpenOrder={(orderId) => navigate(`/orders/${orderId}`)}
           />
         ) : (
-          <section className="panel client-profile-placeholder">
+          <section className={`panel ${styles.clientProfilePlaceholder}`}>
             <span>◉</span>
             <h2>Выберите клиента</h2>
             <p>Справа появятся контакты, активные заказы и полная история обращений.</p>

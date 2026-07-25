@@ -6,6 +6,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { useClientSearch } from '../queries/clients.js'
 import { useCreateClientWithAddress } from '../mutations/clients.js'
 import { clientContactSchema } from '../schemas/clients.js'
+import styles from './ClientPickerModal.module.css'
 import { apiError } from './workspace-utils.js'
 
 export function ClientPickerModal({ onClose, onSelect }) {
@@ -50,7 +51,7 @@ export function ClientPickerModal({ onClose, onSelect }) {
       }}
     >
       <section
-        className="modal-card client-picker"
+        className={`modal-card ${styles.clientPicker}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="client-picker-title"
@@ -67,7 +68,7 @@ export function ClientPickerModal({ onClose, onSelect }) {
 
         {!creating ? (
           <>
-            <label className="client-search">
+            <label className={styles.clientSearch}>
               Поиск по номеру телефона или ФИО
               <input
                 autoFocus
@@ -76,7 +77,7 @@ export function ClientPickerModal({ onClose, onSelect }) {
                 placeholder="Начните вводить телефон или имя"
               />
             </label>
-            <div className="picker-results">
+            <div className={styles.pickerResults}>
               {normalizedSearch.length < 2 && (
                 <div className="empty-state compact">
                   Введите минимум 2 символа имени или телефона.
@@ -85,7 +86,7 @@ export function ClientPickerModal({ onClose, onSelect }) {
               {(clients.data ?? []).map((client) => (
                 <button
                   key={client.id}
-                  className="picker-client"
+                  className={styles.pickerClient}
                   onClick={() => {
                     onSelect(client)
                     onClose()
@@ -153,7 +154,7 @@ export function ClientPickerModal({ onClose, onSelect }) {
           >
             <button
               type="button"
-              className="text-button back-button"
+              className={`text-button ${styles.backButton}`}
               onClick={() => setCreating(false)}
             >
               ← Назад к поиску

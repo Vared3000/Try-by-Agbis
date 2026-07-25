@@ -1,0 +1,136 @@
+.clientProfile {
+  position: sticky;
+  top: 1rem;
+}
+.clientProfileHead,
+.clientProfileIdentity,
+.clientProfileActions,
+.clientHistoryHead {
+  display: flex;
+  align-items: center;
+}
+.clientProfileHead,
+.clientHistoryHead {
+  justify-content: space-between;
+  gap: 1rem;
+}
+.clientProfileIdentity {
+  gap: 0.8rem;
+}
+.clientProfileIdentity :global(.avatar) {
+  width: 48px;
+  height: 48px;
+  font-size: 1rem;
+}
+.clientProfileIdentity h2,
+.clientHistoryHead h3 {
+  margin: 0.15rem 0;
+}
+.clientProfileIdentity > div > span,
+.clientHistoryHead > span {
+  color: #7a8981;
+  font-size: 0.75rem;
+}
+.clientProfileActions {
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+.clientProfileActions :global(.secondary-button) {
+  text-decoration: none;
+}
+.clientContactGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+}
+.clientContactGrid > div {
+  padding: 0.75rem;
+  border: 1px solid #e5ece8;
+  border-radius: 11px;
+  background: #f8faf8;
+}
+.clientContactGrid dt {
+  color: #7a8981;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.clientContactGrid dd {
+  margin: 0.3rem 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+.clientMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 1rem 0 1.3rem;
+}
+.clientMetrics > div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border-radius: 11px;
+  background: #edf5ef;
+}
+.clientMetrics span {
+  color: #698076;
+  font-size: 0.7rem;
+}
+.clientMetrics strong {
+  font-size: 1rem;
+}
+.clientOrderHistory {
+  display: grid;
+  margin-top: 0.55rem;
+}
+.clientOrderRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(100px, 0.55fr) minmax(130px, 0.65fr);
+  gap: 0.8rem;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 0.65rem 0;
+  border: 0;
+  border-top: 1px solid #edf1ee;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.clientOrderRow:hover {
+  background: #f7faf8;
+}
+.clientOrderRow > span {
+  display: grid;
+  gap: 0.2rem;
+}
+.clientOrderRow small {
+  color: #7a8981;
+  font-size: 0.7rem;
+}
+.clientOrderAmount {
+  justify-items: end;
+}
+
+@media (max-width: 850px) {
+  .clientProfile {
+    position: static;
+  }
+  .clientContactGrid,
+  .clientMetrics {
+    grid-template-columns: 1fr;
+  }
+  .clientOrderRow {
+    grid-template-columns: 1fr auto;
+  }
+  .clientOrderRow > span:nth-child(2) {
+    grid-column: 1;
+  }
+  .clientOrderAmount {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+}
