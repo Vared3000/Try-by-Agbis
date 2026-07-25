@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
 import { useCatalog } from '../queries/catalog.js'
+import { useNomenclature } from '../queries/nomenclature.js'
 import {
   ChoiceChecks,
   ItemPhotos,
@@ -122,10 +123,7 @@ export function OrdersPage() {
     },
   })
   const garments = useCatalog('garment-types')
-  const nomenclature = useQuery({
-    queryKey: ['nomenclature'],
-    queryFn: async () => (await apiClient.get('/nomenclature')).data.data,
-  })
+  const nomenclature = useNomenclature()
   const materials = useCatalog('materials')
   const colors = useCatalog('colors')
   const defects = useCatalog('defects')

@@ -1,10 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
-import { apiClient } from '../api/client.js'
 import { DefectGroupsPanel } from '../features/nomenclature/DefectGroupsPanel.jsx'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { useDefectGroups } from '../queries/defect-groups.js'
+import { useNomenclature } from '../queries/nomenclature.js'
+import { useArchiveNomenclatureItem, useSaveNomenclatureItem } from '../mutations/nomenclature.js'
 import { apiError, money } from './workspace-utils.js'
 
 const units = [
@@ -35,54 +35,16 @@ const emptyForm = {
 const numberValue = (value) => Number(String(value).replace(',', '.')) || 0
 
 export function NomenclaturePage() {
-  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState('')
   const [form, setForm] = useState(emptyForm)
   const [defectGroupsOpen, setDefectGroupsOpen] = useState(false)
-  const list = useQuery({
-    queryKey: ['nomenclature', debouncedSearch],
-    queryFn: async () =>
-      (
-        await apiClient.get('/nomenclature', {
-          params: debouncedSearch ? { search: debouncedSearch } : {},
-        })
-      ).data.data,
-  })
+  const list = useNomenclature(debouncedSearch)
   const defectGroups = useDefectGroups()
-  const saveItem = useMutation({
-    mutationFn: async () =>
-      (
-        await apiClient[editingId ? 'patch' : 'post'](
-          editingId ? `/nomenclature/${editingId}` : '/nomenclature',
-          {
-            name: form.name,
-            unit: form.unit,
-            unitPrice: String(Math.round(numberValue(form.price) * 100)),
-            leadTimeHours: Number(form.leadTimeHours),
-            defectGroupId: form.defectGroupId || null,
-          },
-        )
-      ).data.data,
-    onSuccess: (item) => {
-      setForm(emptyForm)
-      setEditingId('')
-      setModalOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['nomenclature'] })
-      window.setTimeout(() => {
-        document.getElementById(`nomenclature-${item.id}`)?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        })
-      }, 100)
-    },
-  })
-  const archiveItem = useMutation({
-    mutationFn: (id) => apiClient.delete(`/nomenclature/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['nomenclature'] }),
-  })
+  const saveItem = useSaveNomenclatureItem()
+  const archiveItem = useArchiveNomenclatureItem()
   const preview = useMemo(() => {
     if (form.unit !== 'square_meter') return null
     const length = numberValue(form.length)
@@ -224,7 +186,31 @@ export function NomenclaturePage() {
               className="modal-form"
               onSubmit={(event) => {
                 event.preventDefault()
-                saveItem.mutate()
+                saveItem.mutate(
+                  {
+                    id: editingId,
+                    payload: {
+                      name: form.name,
+                      unit: form.unit,
+                      unitPrice: String(Math.round(numberValue(form.price) * 100)),
+                      leadTimeHours: Number(form.leadTimeHours),
+                      defectGroupId: form.defectGroupId || null,
+                    },
+                  },
+                  {
+                    onSuccess: (item) => {
+                      setForm(emptyForm)
+                      setEditingId('')
+                      setModalOpen(false)
+                      window.setTimeout(() => {
+                        document.getElementById(`nomenclature-${item.id}`)?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'center',
+                        })
+                      }, 100)
+                    },
+                  },
+                )
               }}
             >
               <label>
