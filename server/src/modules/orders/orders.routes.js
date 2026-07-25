@@ -310,13 +310,6 @@ export function createOrdersRouter({ sequelize, env }) {
         }
 
         const today = new Date().toISOString().slice(0, 10)
-        if (input.acceptedOn && input.acceptedOn > today) {
-          throw new ApiError({
-            status: 422,
-            code: 'ORDER_ACCEPTED_ON_IN_FUTURE',
-            message: 'Дата приёма не может быть в будущем',
-          })
-        }
         const businessDate = input.acceptedOn ?? today
         const priceListWhere = {
           organizationId: req.auth.organizationId,

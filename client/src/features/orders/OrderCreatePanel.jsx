@@ -99,7 +99,6 @@ export function OrderCreatePanel({
           Дата приёма
           <input
             type="date"
-            max={today}
             value={form.acceptedOn || today}
             onChange={(event) => onFormChange({ acceptedOn: event.target.value })}
           />
