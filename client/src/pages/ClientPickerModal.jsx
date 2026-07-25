@@ -9,7 +9,7 @@ export function ClientPickerModal({ onClose, onSelect }) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState({ fullName: '', phone: '', email: '' })
+  const [form, setForm] = useState({ fullName: '', phone: '', email: '', address: '' })
   const deferredSearch = useDebouncedValue(search.trim())
   const normalizedSearch = search.trim()
   const clients = useQuery({
@@ -28,14 +28,20 @@ export function ClientPickerModal({ onClose, onSelect }) {
     clients.isSuccess &&
     !clients.isFetching
   const createClient = useMutation({
-    mutationFn: async () =>
-      (
+    mutationFn: async () => {
+      const client = (
         await apiClient.post('/clients', {
           fullName: form.fullName,
           phone: form.phone || null,
           email: form.email || null,
         })
-      ).data.data,
+      ).data.data
+      await apiClient.post(`/clients/${client.id}/addresses`, {
+        address: form.address,
+        isPrimary: true,
+      })
+      return client
+    },
     onSuccess: (client) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       onSelect(client)
@@ -49,6 +55,7 @@ export function ClientPickerModal({ onClose, onSelect }) {
       fullName: looksLikePhone ? '' : search.trim(),
       phone: looksLikePhone ? search.trim() : '',
       email: '',
+      address: '',
     })
     setCreating(true)
   }
@@ -197,6 +204,19 @@ export function ClientPickerModal({ onClose, onSelect }) {
                   setForm((value) => ({ ...value, email: event.target.value }))
                 }
               />
+            </label>
+            <label>
+              Адрес доставки
+              <input
+                required
+                minLength="5"
+                value={form.address}
+                onChange={(event) =>
+                  setForm((value) => ({ ...value, address: event.target.value }))
+                }
+                placeholder="Город, улица, дом, квартира"
+              />
+              <small>Нужен для доставки и будет показан в квитанции.</small>
             </label>
             {createClient.error && (
               <p className="form-error">{apiError(createClient.error)}</p>

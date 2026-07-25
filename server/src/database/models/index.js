@@ -80,6 +80,7 @@ function associate(models) {
   belongsTo('Order', 'Branch', 'branchId', 'branch')
   belongsTo('Order', 'Location', 'acceptanceLocationId', 'acceptanceLocation')
   belongsTo('Order', 'Location', 'issueLocationId', 'issueLocation')
+  belongsTo('Order', 'PriceList', 'priceListId', 'priceList')
   belongsTo('Order', 'User', 'createdByUserId', 'createdBy')
   belongsTo('OrderItem', 'Order', 'orderId', 'order')
   belongsTo('OrderItem', 'GarmentType', 'garmentTypeId', 'garmentType')

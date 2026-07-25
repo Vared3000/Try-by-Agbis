@@ -22,7 +22,9 @@ const orderInput = z.object({
   branchId: z.string().uuid(),
   acceptanceLocationId: z.string().uuid(),
   issueLocationId: z.string().uuid().nullable().optional(),
+  priceListId: z.string().uuid().nullable().optional(),
   clientId: z.string().uuid(),
+  acceptedOn: z.iso.date().optional(),
   dueAt: z.iso.datetime().nullable().optional(),
   urgency: z.enum(['normal', 'urgent', 'express']).optional(),
   notificationPhone: z.string().trim().max(32).nullable().optional(),
@@ -34,6 +36,7 @@ const orderUpdateInput = orderInput
   .pick({
     clientId: true,
     issueLocationId: true,
+    priceListId: true,
     dueAt: true,
     urgency: true,
     notificationPhone: true,
@@ -151,7 +154,11 @@ export function createOrdersRouter({ sequelize, env }) {
   }
 
   const orderIncludes = [
-    { model: models.Client, as: 'client' },
+    {
+      model: models.Client,
+      as: 'client',
+      include: [{ model: models.ClientAddress, as: 'addresses' }],
+    },
     { model: models.Branch, as: 'branch' },
     { model: models.Location, as: 'acceptanceLocation' },
     { model: models.Location, as: 'issueLocation' },
@@ -302,7 +309,38 @@ export function createOrdersRouter({ sequelize, env }) {
           })
         }
 
-        const businessDate = new Date().toISOString().slice(0, 10)
+        const today = new Date().toISOString().slice(0, 10)
+        if (input.acceptedOn && input.acceptedOn > today) {
+          throw new ApiError({
+            status: 422,
+            code: 'ORDER_ACCEPTED_ON_IN_FUTURE',
+            message: 'Дата приёма не может быть в будущем',
+          })
+        }
+        const businessDate = input.acceptedOn ?? today
+        const priceListWhere = {
+          organizationId: req.auth.organizationId,
+          status: 'active',
+          validFrom: { [Op.lte]: businessDate },
+          [Op.or]: [{ validTo: null }, { validTo: { [Op.gte]: businessDate } }],
+        }
+        const priceList = input.priceListId
+          ? await models.PriceList.findOne({
+              where: { ...priceListWhere, id: input.priceListId },
+              transaction,
+            })
+          : await models.PriceList.findOne({
+              where: priceListWhere,
+              order: [['validFrom', 'DESC']],
+              transaction,
+            })
+        if (input.priceListId && !priceList) {
+          throw new ApiError({
+            status: 422,
+            code: 'ORDER_REFERENCE_INVALID',
+            message: 'Выбранный прайс-лист недоступен',
+          })
+        }
         const currentMaximum = await models.Order.max('sequence', {
           where: {
             organizationId: req.auth.organizationId,
@@ -336,6 +374,7 @@ export function createOrdersRouter({ sequelize, env }) {
             organizationId: req.auth.organizationId,
             ...input,
             issueLocationId,
+            priceListId: priceList?.id ?? null,
             urgency: input.urgency ?? 'normal',
             notificationPhone: input.notificationPhone || client.phone || null,
             isRework: input.isRework ?? false,
@@ -569,9 +608,27 @@ export function createOrdersRouter({ sequelize, env }) {
           })
         }
       }
+      if (input.priceListId) {
+        const priceList = await models.PriceList.findOne({
+          where: {
+            id: input.priceListId,
+            organizationId: req.auth.organizationId,
+            status: 'active',
+          },
+          transaction,
+        })
+        if (!priceList) {
+          throw new ApiError({
+            status: 422,
+            code: 'ORDER_PRICE_LIST_INVALID',
+            message: 'Выбранный прайс-лист недоступен',
+          })
+        }
+      }
       const before = {
         clientId: order.clientId,
         issueLocationId: order.issueLocationId,
+        priceListId: order.priceListId,
         dueAt: order.dueAt,
         urgency: order.urgency,
         notificationPhone: order.notificationPhone,
@@ -611,6 +668,7 @@ export function createOrdersRouter({ sequelize, env }) {
           after: {
             clientId: order.clientId,
             issueLocationId: order.issueLocationId,
+            priceListId: order.priceListId,
             dueAt: order.dueAt,
             urgency: order.urgency,
             notificationPhone: order.notificationPhone,
@@ -712,16 +770,24 @@ export function createOrdersRouter({ sequelize, env }) {
       }
       let resolvedUnitPrice = nomenclature?.unitPrice ?? null
       if (nomenclature) {
-        const activePriceList = await models.PriceList.findOne({
-          where: {
-            organizationId: req.auth.organizationId,
-            status: 'active',
-            validFrom: { [Op.lte]: order.acceptedOn },
-            [Op.or]: [{ validTo: null }, { validTo: { [Op.gte]: order.acceptedOn } }],
-          },
-          order: [['validFrom', 'DESC']],
-          transaction,
-        })
+        const activePriceList = order.priceListId
+          ? await models.PriceList.findOne({
+              where: { id: order.priceListId, organizationId: req.auth.organizationId },
+              transaction,
+            })
+          : await models.PriceList.findOne({
+              where: {
+                organizationId: req.auth.organizationId,
+                status: 'active',
+                validFrom: { [Op.lte]: order.acceptedOn },
+                [Op.or]: [
+                  { validTo: null },
+                  { validTo: { [Op.gte]: order.acceptedOn } },
+                ],
+              },
+              order: [['validFrom', 'DESC']],
+              transaction,
+            })
         if (activePriceList) {
           const priceOverride = await models.PriceListItem.findOne({
             where: {
@@ -1029,19 +1095,27 @@ export function createOrdersRouter({ sequelize, env }) {
         ) {
           throw missing('ORDER_ITEM_NOT_FOUND', 'Изделие не найдено')
         }
-        const priceList = await models.PriceList.findOne({
-          where: {
-            organizationId: req.auth.organizationId,
-            status: 'active',
-            validFrom: { [Op.lte]: item.order.acceptedOn },
-            [Op.or]: [
-              { validTo: null },
-              { validTo: { [Op.gte]: item.order.acceptedOn } },
-            ],
-          },
-          order: [['validFrom', 'DESC']],
-          transaction,
-        })
+        const priceList = item.order.priceListId
+          ? await models.PriceList.findOne({
+              where: {
+                id: item.order.priceListId,
+                organizationId: req.auth.organizationId,
+              },
+              transaction,
+            })
+          : await models.PriceList.findOne({
+              where: {
+                organizationId: req.auth.organizationId,
+                status: 'active',
+                validFrom: { [Op.lte]: item.order.acceptedOn },
+                [Op.or]: [
+                  { validTo: null },
+                  { validTo: { [Op.gte]: item.order.acceptedOn } },
+                ],
+              },
+              order: [['validFrom', 'DESC']],
+              transaction,
+            })
         if (!priceList) {
           throw new ApiError({
             status: 422,

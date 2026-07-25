@@ -6,7 +6,7 @@ import { apiError } from '../../pages/workspace-utils.js'
 
 const emptyForm = { name: '', defectIds: [] }
 
-export function DefectGroupsPanel() {
+export function DefectGroupsPanel({ onHide }) {
   const queryClient = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState('')
@@ -92,9 +92,16 @@ export function DefectGroupsPanel() {
               позициям номенклатуры.
             </p>
           </div>
-          <button className="secondary-button" type="button" onClick={openCreate}>
-            + Создать группу
-          </button>
+          <div className="table-actions">
+            <button className="secondary-button" type="button" onClick={openCreate}>
+              + Создать группу
+            </button>
+            {onHide && (
+              <button className="text-button" type="button" onClick={onHide}>
+                Скрыть
+              </button>
+            )}
+          </div>
         </div>
         <div className="defect-directory-card">
           <div>

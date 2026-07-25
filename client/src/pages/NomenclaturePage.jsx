@@ -40,6 +40,7 @@ export function NomenclaturePage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState('')
   const [form, setForm] = useState(emptyForm)
+  const [defectGroupsOpen, setDefectGroupsOpen] = useState(false)
   const list = useQuery({
     queryKey: ['nomenclature', debouncedSearch],
     queryFn: async () =>
@@ -180,7 +181,17 @@ export function NomenclaturePage() {
         </div>
       </section>
 
-      <DefectGroupsPanel />
+      {defectGroupsOpen ? (
+        <DefectGroupsPanel onHide={() => setDefectGroupsOpen(false)} />
+      ) : (
+        <button
+          className="secondary-button defect-groups-toggle"
+          type="button"
+          onClick={() => setDefectGroupsOpen(true)}
+        >
+          Дефекты и группы при приёмке
+        </button>
+      )}
 
       {modalOpen && (
         <div

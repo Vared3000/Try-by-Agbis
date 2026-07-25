@@ -7,6 +7,8 @@ export const money = (value) =>
 export const apiError = (error) =>
   error.response?.data?.error?.message ?? 'Операция не выполнена'
 
+export const isClientFacingLocation = (location) => location.type !== 'production'
+
 export const orderStatusLabel = (status) =>
   ({
     draft: 'Черновик',

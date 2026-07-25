@@ -1,12 +1,13 @@
 export function OrderCreatePanel({
-  branches,
-  effectiveBranchId,
   effectiveLocationId,
+  effectivePriceListId,
   errorMessage,
   form,
   isPending,
   issueLocations,
   locations,
+  priceLists,
+  today,
   onChooseClient,
   onFormChange,
   onSubmit,
@@ -49,27 +50,23 @@ export function OrderCreatePanel({
           </button>
         </div>
 
+        {priceLists.length > 0 && (
+          <label>
+            Прайс-лист
+            <select
+              value={effectivePriceListId}
+              onChange={(event) => onFormChange({ priceListId: event.target.value })}
+            >
+              {priceLists.map((list) => (
+                <option key={list.id} value={list.id}>
+                  {list.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
-          Филиал
-          <select
-            required
-            value={effectiveBranchId}
-            onChange={(event) =>
-              onFormChange({
-                branchId: event.target.value,
-                acceptanceLocationId: '',
-              })
-            }
-          >
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Точка приёмки
+          Точка приёма
           <select
             required
             value={effectiveLocationId}
@@ -93,34 +90,28 @@ export function OrderCreatePanel({
           >
             {issueLocations.map((location) => (
               <option key={location.id} value={location.id}>
-                {location.branchName} · {location.name}
+                {location.name}
               </option>
             ))}
           </select>
         </label>
         <label>
           Дата приёма
-          <input disabled type="text" value={new Date().toLocaleDateString('ru-RU')} />
+          <input
+            type="date"
+            max={today}
+            value={form.acceptedOn || today}
+            onChange={(event) => onFormChange({ acceptedOn: event.target.value })}
+          />
         </label>
         <label>
-          Срок готовности
+          Дата выдачи
           <input
-            type="datetime-local"
+            type="date"
             value={form.dueAt}
             onChange={(event) => onFormChange({ dueAt: event.target.value })}
           />
           <small>Оставьте пустым — система рассчитает дату автоматически.</small>
-        </label>
-        <label>
-          Срочность
-          <select
-            value={form.urgency}
-            onChange={(event) => onFormChange({ urgency: event.target.value })}
-          >
-            <option value="normal">Обычный заказ</option>
-            <option value="urgent">Срочный</option>
-            <option value="express">Экспресс</option>
-          </select>
         </label>
         <label>
           Телефон для уведомлений

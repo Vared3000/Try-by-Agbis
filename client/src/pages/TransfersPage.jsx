@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
 
 import { apiClient } from '../api/client.js'
+import { OrderItemPickerModal } from '../features/transfers/OrderItemPickerModal.jsx'
 import { apiError } from './workspace-utils.js'
 
 const statusLabels = {
@@ -25,6 +26,7 @@ export function TransfersPage() {
   const [toLocationId, setToLocationId] = useState('')
   const [notes, setNotes] = useState('')
   const [scanCode, setScanCode] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [receivedIds, setReceivedIds] = useState([])
   const [receivedForKey, setReceivedForKey] = useState('')
 
@@ -86,8 +88,8 @@ export function TransfersPage() {
     },
   })
   const addItem = useMutation({
-    mutationFn: () =>
-      apiClient.post(`/transfers/${effectiveSelectedId}/items`, { scanCode: scanCode.trim() }),
+    mutationFn: (code) =>
+      apiClient.post(`/transfers/${effectiveSelectedId}/items`, { scanCode: code }),
     onSuccess: async () => {
       setScanCode('')
       await refresh()
@@ -252,7 +254,7 @@ export function TransfersPage() {
                 className="scan-form transfer-scan"
                 onSubmit={(event) => {
                   event.preventDefault()
-                  if (scanCode.trim()) addItem.mutate()
+                  if (scanCode.trim()) addItem.mutate(scanCode.trim())
                 }}
               >
                 <input
@@ -267,6 +269,13 @@ export function TransfersPage() {
                   disabled={addItem.isPending || !scanCode.trim()}
                 >
                   Добавить изделие
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setPickerOpen(true)}
+                >
+                  По номеру заказа…
                 </button>
               </form>
             )}
@@ -368,6 +377,10 @@ export function TransfersPage() {
           </>
         )}
       </section>
+
+      {pickerOpen && (
+        <OrderItemPickerModal addItem={addItem} onClose={() => setPickerOpen(false)} />
+      )}
     </div>
   )
 }

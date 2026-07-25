@@ -1,4 +1,7 @@
+import { useState } from 'react'
+
 import { money, orderStatusLabel } from '../../pages/workspace-utils.js'
+import { ClientEditModal } from './ClientEditModal.jsx'
 
 const finalStatuses = new Set(['issued', 'cancelled'])
 
@@ -11,6 +14,7 @@ export function ClientProfilePanel({
   onNewOrder,
   onOpenOrder,
 }) {
+  const [editOpen, setEditOpen] = useState(false)
   if (loading) {
     return <section className="panel empty-state">Загружаем карточку клиента…</section>
   }
@@ -58,6 +62,9 @@ export function ClientProfilePanel({
             Позвонить
           </a>
         )}
+        <button className="secondary-button" onClick={() => setEditOpen(true)}>
+          Изменить карточку
+        </button>
       </div>
 
       <dl className="client-contact-grid">
@@ -69,12 +76,10 @@ export function ClientProfilePanel({
           <dt>Email</dt>
           <dd>{client.email || 'Не указан'}</dd>
         </div>
-        {primaryAddress && (
-          <div className="field-wide">
-            <dt>Основной адрес</dt>
-            <dd>{primaryAddress.address}</dd>
-          </div>
-        )}
+        <div className="field-wide">
+          <dt>Адрес доставки</dt>
+          <dd>{primaryAddress?.address || 'Не указан'}</dd>
+        </div>
         {client.notes && (
           <div className="field-wide">
             <dt>Комментарий</dt>
@@ -142,6 +147,10 @@ export function ClientProfilePanel({
           </div>
         )}
       </div>
+
+      {editOpen && (
+        <ClientEditModal client={client} onClose={() => setEditOpen(false)} />
+      )}
     </section>
   )
 }

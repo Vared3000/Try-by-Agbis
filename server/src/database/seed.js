@@ -19,6 +19,9 @@ const ids = {
   defect: '10000000-0000-4000-8000-000000000013',
   contamination: '10000000-0000-4000-8000-000000000014',
   stage: '10000000-0000-4000-8000-000000000015',
+  locationDelivery: '10000000-0000-4000-8000-000000000026',
+  locationWorkshop: '10000000-0000-4000-8000-000000000027',
+  locationKupchino: '10000000-0000-4000-8000-000000000028',
   route: '10000000-0000-4000-8000-000000000016',
   routeStage: '10000000-0000-4000-8000-000000000017',
   priceList: '10000000-0000-4000-8000-000000000018',
@@ -94,17 +97,20 @@ export async function seed(sequelize, logger) {
       },
       ...common,
     })
-    await models.Branch.findOrCreate({
+    const [branch] = await models.Branch.findOrCreate({
       where: { id: ids.branch },
       defaults: {
         organizationId: ids.organization,
         number: 1,
         code: 'DEMO',
-        name: 'Демонстрационный филиал',
+        name: 'Склад приёма',
         version: 0,
       },
       ...common,
     })
+    if (branch.name !== 'Склад приёма') {
+      await branch.update({ name: 'Склад приёма' }, common)
+    }
     await models.Location.findOrCreate({
       where: { id: ids.location },
       defaults: {
@@ -116,6 +122,24 @@ export async function seed(sequelize, logger) {
       },
       ...common,
     })
+    const additionalLocations = [
+      [ids.locationDelivery, 'DELIVERY', 'Доставка', 'delivery'],
+      [ids.locationWorkshop, 'WORKSHOP', 'Основной цех', 'production'],
+      [ids.locationKupchino, 'KUPCHINO', 'Купчинская', 'branch'],
+    ]
+    for (const [id, code, name, type] of additionalLocations) {
+      await models.Location.findOrCreate({
+        where: { id },
+        defaults: {
+          organizationId: ids.organization,
+          branchId: ids.branch,
+          code,
+          name,
+          type,
+        },
+        ...common,
+      })
+    }
     await models.Workplace.findOrCreate({
       where: { id: ids.workplace },
       defaults: {

@@ -11,6 +11,7 @@ import * as orderNumberFormat from './202607240009-order-number-format.js'
 import * as orderOperationalFields from './202607250001-order-operational-fields.js'
 import * as automaticDueDate from './202607250002-automatic-due-date.js'
 import * as transferDocuments from './202607250003-transfer-documents.js'
+import * as orderPriceList from './202607250004-order-price-list.js'
 
 export const migrations = [
   initialSchema,
@@ -26,4 +27,5 @@ export const migrations = [
   orderOperationalFields,
   automaticDueDate,
   transferDocuments,
+  orderPriceList,
 ]

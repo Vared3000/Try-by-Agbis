@@ -1,21 +1,24 @@
 import { useState } from 'react'
 
 import { ClientPickerModal } from '../../pages/ClientPickerModal.jsx'
-import { apiError } from '../../pages/workspace-utils.js'
+import { apiError, isClientFacingLocation } from '../../pages/workspace-utils.js'
 
-export function OrderMetaEditor({ branches, order, updateOrder, onClose }) {
+export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onClose }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const issueLocations = branches.flatMap((branch) =>
-    (branch.locations ?? []).map((location) => ({
-      ...location,
-      branchName: branch.name,
-    })),
+    (branch.locations ?? [])
+      .filter(isClientFacingLocation)
+      .map((location) => ({
+        ...location,
+        branchName: branch.name,
+      })),
   )
   const [form, setForm] = useState({
     clientId: order.clientId,
     client: order.client,
     issueLocationId:
       order.issueLocationId || order.acceptanceLocationId || issueLocations[0]?.id || '',
+    priceListId: order.priceListId || priceLists[0]?.id || '',
     dueAt: order.dueAt ? new Date(order.dueAt).toLocaleString('sv-SE').slice(0, 16) : '',
     urgency: order.urgency || 'normal',
     notificationPhone: order.notificationPhone || order.client?.phone || '',
@@ -55,6 +58,7 @@ export function OrderMetaEditor({ branches, order, updateOrder, onClose }) {
                 {
                   clientId: form.clientId,
                   issueLocationId: form.issueLocationId,
+                  priceListId: form.priceListId || null,
                   dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : null,
                   urgency: form.urgency,
                   notificationPhone: form.notificationPhone || null,
@@ -104,6 +108,24 @@ export function OrderMetaEditor({ branches, order, updateOrder, onClose }) {
                   ))}
                 </select>
               </label>
+              {priceLists.length > 0 && (
+                <label>
+                  Прайс-лист
+                  <select
+                    value={form.priceListId}
+                    onChange={(event) =>
+                      setForm((value) => ({ ...value, priceListId: event.target.value }))
+                    }
+                  >
+                    {priceLists.map((list) => (
+                      <option key={list.id} value={list.id}>
+                        {list.name}
+                      </option>
+                    ))}
+                  </select>
+                  <small>Действует для изделий, добавленных после сохранения.</small>
+                </label>
+              )}
               <label>
                 Срок готовности
                 <input

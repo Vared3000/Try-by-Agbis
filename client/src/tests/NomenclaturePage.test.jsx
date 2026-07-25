@@ -61,6 +61,9 @@ describe('NomenclaturePage', () => {
       </QueryClientProvider>,
     )
 
+    fireEvent.click(
+      screen.getByRole('button', { name: /Дефекты и группы при приёмке/ }),
+    )
     fireEvent.change(screen.getByLabelText('Новый дефект'), {
       target: { value: 'Утеряна молния' },
     })

@@ -127,6 +127,10 @@ export function createAuthRouter({ sequelize, env }) {
       ],
       order: [
         ['name', 'ASC'],
+        [
+          sequelize.literal(`CASE WHEN "locations"."type" = 'acceptance' THEN 0 ELSE 1 END`),
+          'ASC',
+        ],
         [{ model: Location, as: 'locations' }, 'name', 'ASC'],
       ],
     })

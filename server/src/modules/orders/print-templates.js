@@ -77,6 +77,9 @@ export function renderReceiptHtml({
   template = defaultReceiptTemplate,
 }) {
   const companyName = organization?.name || template.brandName
+  const clientAddress =
+    order.client?.addresses?.find((address) => address.isPrimary) ??
+    order.client?.addresses?.[0]
   const rows = (order.items ?? [])
     .map((item, index) => {
       const services = (item.services ?? [])
@@ -132,6 +135,7 @@ export function renderReceiptHtml({
     .muted, small { display: block; color: #65746c; font-size: 10px; }
     .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm 12mm; margin: 7mm 0; }
     .meta div { padding-bottom: 2mm; border-bottom: 1px solid #dfe5e1; }
+    .meta .wide { grid-column: 1 / -1; }
     .meta span { display: block; color: #65746c; font-size: 10px; }
     table { width: 100%; border-collapse: collapse; }
     th { padding: 2.5mm 2mm; color: #fff; background: #315d4d; text-align: left; font-size: 10px; }
@@ -171,6 +175,7 @@ export function renderReceiptHtml({
       <div><span>Срок готовности</span><strong>${escapeHtml(dateTime(order.dueAt))}</strong></div>
       <div><span>Клиент</span><strong>${escapeHtml(order.client?.fullName)}</strong></div>
       <div><span>Телефон</span><strong>${escapeHtml(order.client?.phone || 'Не указан')}</strong></div>
+      <div class="wide"><span>Адрес доставки</span><strong>${escapeHtml(clientAddress?.address || 'Не указан')}</strong></div>
     </section>
     <table>
       <thead><tr><th>№</th><th>Изделие</th><th>Услуга</th><th>Количество</th><th>Стоимость</th></tr></thead>

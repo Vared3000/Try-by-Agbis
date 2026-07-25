@@ -24,7 +24,13 @@ import { SaveOrderButton } from '../features/orders/SaveOrderButton.jsx'
 import { useOrderHotkeys } from '../features/orders/useOrderHotkeys.js'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
-import { apiError, money, openApiDocument, orderStatusLabel } from './workspace-utils.js'
+import {
+  apiError,
+  isClientFacingLocation,
+  money,
+  openApiDocument,
+  orderStatusLabel,
+} from './workspace-utils.js'
 
 const findName = (rows, id) => rows?.find((row) => row.id === id)?.name
 const finalOrderStatuses = new Set(['issued', 'cancelled'])
@@ -57,6 +63,8 @@ export function OrdersPage() {
     branchId: '',
     acceptanceLocationId: '',
     issueLocationId: '',
+    priceListId: '',
+    acceptedOn: '',
     dueAt: '',
     urgency: 'normal',
     notificationPhone: '',
@@ -140,17 +148,24 @@ export function OrdersPage() {
     queryFn: async () => (await apiClient.get('/price-lists')).data.data,
   })
   const today = new Date().toISOString().slice(0, 10)
-  const activePriceList = priceLists.data?.find(
+  const activePriceLists = (priceLists.data ?? []).filter(
     (row) =>
       row.status === 'active' &&
       row.validFrom <= today &&
       (!row.validTo || row.validTo >= today),
   )
+  const order = useQuery({
+    queryKey: ['order', selectedOrderId],
+    queryFn: async () => (await apiClient.get(`/orders/${selectedOrderId}`)).data.data,
+    enabled: Boolean(selectedOrderId),
+  })
+  const effectivePriceListId =
+    order.data?.priceListId || orderForm.priceListId || activePriceLists[0]?.id || ''
   const prices = useQuery({
-    queryKey: ['price-list', activePriceList?.id],
+    queryKey: ['price-list', effectivePriceListId],
     queryFn: async () =>
-      (await apiClient.get(`/price-lists/${activePriceList.id}`)).data.data,
-    enabled: Boolean(activePriceList),
+      (await apiClient.get(`/price-lists/${effectivePriceListId}`)).data.data,
+    enabled: Boolean(effectivePriceListId),
   })
   const pricedNomenclature = (nomenclature.data ?? []).map((row) => {
     const override = prices.data?.items?.find(
@@ -158,22 +173,20 @@ export function OrdersPage() {
     )
     return override ? { ...row, unitPrice: override.price } : row
   })
-  const order = useQuery({
-    queryKey: ['order', selectedOrderId],
-    queryFn: async () => (await apiClient.get(`/orders/${selectedOrderId}`)).data.data,
-    enabled: Boolean(selectedOrderId),
-  })
 
   const branches = context.data?.branches ?? []
   const effectiveBranchId = orderForm.branchId || branches[0]?.id || ''
-  const locations =
+  const locations = (
     branches.find((branch) => branch.id === effectiveBranchId)?.locations ?? []
+  ).filter(isClientFacingLocation)
   const effectiveLocationId = orderForm.acceptanceLocationId || locations[0]?.id || ''
   const issueLocations = branches.flatMap((branch) =>
-    (branch.locations ?? []).map((location) => ({
-      ...location,
-      branchName: branch.name,
-    })),
+    (branch.locations ?? [])
+      .filter(isClientFacingLocation)
+      .map((location) => ({
+        ...location,
+        branchName: branch.name,
+      })),
   )
   const effectiveIssueLocationId =
     orderForm.issueLocationId || effectiveLocationId || issueLocations[0]?.id || ''
@@ -188,7 +201,11 @@ export function OrdersPage() {
           branchId: effectiveBranchId,
           acceptanceLocationId: effectiveLocationId,
           issueLocationId: effectiveIssueLocationId,
-          dueAt: orderForm.dueAt ? new Date(orderForm.dueAt).toISOString() : null,
+          priceListId: effectivePriceListId || null,
+          acceptedOn: orderForm.acceptedOn || today,
+          dueAt: orderForm.dueAt
+            ? new Date(`${orderForm.dueAt}T18:00:00`).toISOString()
+            : null,
           urgency: orderForm.urgency,
           notificationPhone: orderForm.notificationPhone || selectedClient?.phone || null,
           isRework: orderForm.isRework,
@@ -338,9 +355,8 @@ export function OrdersPage() {
 
         {!selectedOrderId ? (
           <OrderCreatePanel
-            branches={branches}
-            effectiveBranchId={effectiveBranchId}
             effectiveLocationId={effectiveLocationId}
+            effectivePriceListId={effectivePriceListId}
             errorMessage={createOrder.error ? apiError(createOrder.error) : ''}
             form={{
               ...orderForm,
@@ -350,6 +366,8 @@ export function OrdersPage() {
             isPending={createOrder.isPending}
             issueLocations={issueLocations}
             locations={locations}
+            priceLists={activePriceLists}
+            today={today}
             onChooseClient={() => setClientPickerOpen(true)}
             onFormChange={(changes) =>
               setOrderForm((value) => ({ ...value, ...changes }))
@@ -370,6 +388,7 @@ export function OrdersPage() {
             defects={defects.data ?? []}
             contaminations={contaminations.data ?? []}
             prices={prices.data?.items ?? []}
+            priceLists={activePriceLists}
             itemSelectRef={itemSelectRef}
             itemForm={itemForm}
             setItemForm={setItemForm}
@@ -435,6 +454,7 @@ function OrderEditor({
   defects,
   contaminations,
   prices,
+  priceLists,
   itemSelectRef,
   itemForm,
   setItemForm,
@@ -499,7 +519,11 @@ function OrderEditor({
           <div className="order-operational-meta">
             <OrderMetaValue
               label="Принят"
-              value={`${new Date(order.createdAt).toLocaleString('ru-RU')} · ${
+              value={`${
+                order.acceptedOn
+                  ? order.acceptedOn.split('-').reverse().join('.')
+                  : new Date(order.createdAt).toLocaleDateString('ru-RU')
+              } · ${
                 order.acceptanceLocation?.name || order.branch?.name || 'Точка не указана'
               }`}
             />
@@ -1072,6 +1096,7 @@ function OrderEditor({
         <OrderMetaEditor
           branches={branches}
           order={order}
+          priceLists={priceLists}
           updateOrder={updateOrder}
           onClose={() => setMetaOpen(false)}
         />

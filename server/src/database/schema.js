@@ -442,6 +442,7 @@ export const schema = {
       branchId: uuid({ tableName: 'branches', key: 'id' }),
       acceptanceLocationId: uuid({ tableName: 'locations', key: 'id' }),
       issueLocationId: nullableUuid({ tableName: 'locations', key: 'id' }),
+      priceListId: nullableUuid({ tableName: 'price_lists', key: 'id' }),
       clientId: uuid({ tableName: 'clients', key: 'id' }),
       sequence: { type: DataTypes.BIGINT, allowNull: false },
       displayNumber: string(64),
