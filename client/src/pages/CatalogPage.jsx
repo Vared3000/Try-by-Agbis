@@ -1,11 +1,14 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueries } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
 
 import { catalogKey } from '../queries/catalog.js'
 import { useServices } from '../queries/services.js'
 import { listCatalog } from '../services/catalog.js'
 import { useArchiveCatalogEntry, useSaveCatalogEntry } from '../mutations/catalog.js'
 import { useArchiveService, useSaveService } from '../mutations/services.js'
+import { catalogEntrySchema, serviceSchema } from '../schemas/catalog.js'
 import { apiError } from './workspace-utils.js'
 
 const catalogs = [
@@ -19,9 +22,7 @@ const emptyService = { code: '', name: '', unit: 'item', categoryId: '' }
 
 export function CatalogPage() {
   const [active, setActive] = useState('materials')
-  const [entry, setEntry] = useState({ name: '' })
   const [editingEntryId, setEditingEntryId] = useState('')
-  const [service, setService] = useState(emptyService)
   const [editingServiceId, setEditingServiceId] = useState('')
   const catalogQueries = useQueries({
     queries: catalogs.map(([path]) => ({
@@ -30,10 +31,28 @@ export function CatalogPage() {
     })),
   })
   const services = useServices()
+  const {
+    register: registerEntry,
+    handleSubmit: handleEntrySubmit,
+    reset: resetEntry,
+    formState: { errors: entryErrors },
+  } = useForm({
+    resolver: zodResolver(catalogEntrySchema),
+    defaultValues: { name: '' },
+  })
+  const {
+    register: registerService,
+    handleSubmit: handleServiceSubmit,
+    reset: resetService,
+    formState: { errors: serviceErrors },
+  } = useForm({
+    resolver: zodResolver(serviceSchema),
+    defaultValues: emptyService,
+  })
   const selectTab = (path) => {
     setActive(path)
     setEditingEntryId('')
-    setEntry({ name: '' })
+    resetEntry({ name: '' })
   }
   const saveEntry = useSaveCatalogEntry(active)
   const archiveEntry = useArchiveCatalogEntry(active)
@@ -47,17 +66,55 @@ export function CatalogPage() {
 
   const openEditEntry = (row) => {
     setEditingEntryId(row.id)
-    setEntry({ name: row.name })
+    resetEntry({ name: row.name })
   }
   const openEditService = (row) => {
     setEditingServiceId(row.id)
-    setService({
+    resetService({
       code: row.code,
       name: row.name,
       unit: row.unit,
       categoryId: row.categoryId || '',
     })
   }
+
+  const submitEntry = handleEntrySubmit((values) => {
+    saveEntry.mutate(
+      {
+        id: editingEntryId,
+        payload: editingEntryId
+          ? { name: values.name }
+          : {
+              code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}`,
+              name: values.name,
+            },
+      },
+      {
+        onSuccess: () => {
+          resetEntry({ name: '' })
+          setEditingEntryId('')
+        },
+      },
+    )
+  })
+
+  const submitService = handleServiceSubmit((values) => {
+    saveService.mutate(
+      {
+        id: editingServiceId,
+        payload: {
+          ...values,
+          categoryId: values.categoryId || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          resetService(emptyService)
+          setEditingServiceId('')
+        },
+      },
+    )
+  })
 
   return (
     <div className="stack">
@@ -84,37 +141,8 @@ export function CatalogPage() {
             </button>
           ))}
         </div>
-        <form
-          className="inline-form catalog-entry-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            saveEntry.mutate(
-              {
-                id: editingEntryId,
-                payload: editingEntryId
-                  ? { name: entry.name }
-                  : {
-                      code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}`,
-                      name: entry.name,
-                    },
-              },
-              {
-                onSuccess: () => {
-                  setEntry({ name: '' })
-                  setEditingEntryId('')
-                },
-              },
-            )
-          }}
-        >
-          <input
-            required
-            value={entry.name}
-            onChange={(event) =>
-              setEntry((value) => ({ ...value, name: event.target.value }))
-            }
-            placeholder="Название"
-          />
+        <form className="inline-form catalog-entry-form" onSubmit={submitEntry}>
+          <input {...registerEntry('name')} placeholder="Название" />
           <button className="primary-button" disabled={saveEntry.isPending}>
             {editingEntryId ? 'Сохранить' : 'Добавить'}
           </button>
@@ -124,13 +152,14 @@ export function CatalogPage() {
               className="secondary-button"
               onClick={() => {
                 setEditingEntryId('')
-                setEntry({ name: '' })
+                resetEntry({ name: '' })
               }}
             >
               Отмена
             </button>
           )}
         </form>
+        {entryErrors.name && <p className="form-error">{entryErrors.name.message}</p>}
         {saveEntry.error && <p className="form-error">{apiError(saveEntry.error)}</p>}
         <div className="chip-list">
           {activeRows.map((row) => (
@@ -152,7 +181,7 @@ export function CatalogPage() {
                     onSuccess: () => {
                       if (editingEntryId === row.id) {
                         setEditingEntryId('')
-                        setEntry({ name: '' })
+                        resetEntry({ name: '' })
                       }
                     },
                   })
@@ -173,49 +202,10 @@ export function CatalogPage() {
           </div>
           <span>{services.data?.length ?? 0} позиций</span>
         </div>
-        <form
-          className="inline-form service-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            saveService.mutate(
-              {
-                id: editingServiceId,
-                payload: {
-                  ...service,
-                  categoryId: service.categoryId || null,
-                },
-              },
-              {
-                onSuccess: () => {
-                  setService(emptyService)
-                  setEditingServiceId('')
-                },
-              },
-            )
-          }}
-        >
-          <input
-            required
-            value={service.code}
-            onChange={(event) =>
-              setService((value) => ({ ...value, code: event.target.value }))
-            }
-            placeholder="Код услуги"
-          />
-          <input
-            required
-            value={service.name}
-            onChange={(event) =>
-              setService((value) => ({ ...value, name: event.target.value }))
-            }
-            placeholder="Название услуги"
-          />
-          <select
-            value={service.categoryId}
-            onChange={(event) =>
-              setService((value) => ({ ...value, categoryId: event.target.value }))
-            }
-          >
+        <form className="inline-form service-form" onSubmit={submitService}>
+          <input {...registerService('code')} placeholder="Код услуги" />
+          <input {...registerService('name')} placeholder="Название услуги" />
+          <select {...registerService('categoryId')}>
             <option value="">Без категории</option>
             {categories.map((row) => (
               <option key={row.id} value={row.id}>
@@ -232,13 +222,18 @@ export function CatalogPage() {
               className="secondary-button"
               onClick={() => {
                 setEditingServiceId('')
-                setService(emptyService)
+                resetService(emptyService)
               }}
             >
               Отмена
             </button>
           )}
         </form>
+        {(serviceErrors.code || serviceErrors.name) && (
+          <p className="form-error">
+            {serviceErrors.code?.message || serviceErrors.name?.message}
+          </p>
+        )}
         {saveService.error && <p className="form-error">{apiError(saveService.error)}</p>}
         <div className="data-list">
           {(services.data ?? []).map((row) => (
@@ -264,7 +259,7 @@ export function CatalogPage() {
                       onSuccess: () => {
                         if (editingServiceId === row.id) {
                           setEditingServiceId('')
-                          setService(emptyService)
+                          resetService(emptyService)
                         }
                       },
                     })

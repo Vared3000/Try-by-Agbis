@@ -1,10 +1,13 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMemo, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 
 import { DefectGroupsPanel } from '../features/nomenclature/DefectGroupsPanel.jsx'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { useDefectGroups } from '../queries/defect-groups.js'
 import { useNomenclature } from '../queries/nomenclature.js'
 import { useArchiveNomenclatureItem, useSaveNomenclatureItem } from '../mutations/nomenclature.js'
+import { nomenclatureItemSchema } from '../schemas/nomenclature.js'
 import { apiError, money } from './workspace-utils.js'
 
 const units = [
@@ -39,12 +42,23 @@ export function NomenclaturePage() {
   const debouncedSearch = useDebouncedValue(search)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState('')
-  const [form, setForm] = useState(emptyForm)
   const [defectGroupsOpen, setDefectGroupsOpen] = useState(false)
   const list = useNomenclature(debouncedSearch)
   const defectGroups = useDefectGroups()
   const saveItem = useSaveNomenclatureItem()
   const archiveItem = useArchiveNomenclatureItem()
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    control,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(nomenclatureItemSchema),
+    defaultValues: emptyForm,
+  })
+  const form = useWatch({ control })
   const preview = useMemo(() => {
     if (form.unit !== 'square_meter') return null
     const length = numberValue(form.length)
@@ -56,13 +70,13 @@ export function NomenclaturePage() {
 
   const openCreate = () => {
     setEditingId('')
-    setForm(emptyForm)
+    reset(emptyForm)
     setModalOpen(true)
   }
 
   const openEdit = (row) => {
     setEditingId(row.id)
-    setForm({
+    reset({
       ...emptyForm,
       name: row.name,
       unit: row.unit,
@@ -72,6 +86,34 @@ export function NomenclaturePage() {
     })
     setModalOpen(true)
   }
+
+  const submit = handleSubmit((values) => {
+    saveItem.mutate(
+      {
+        id: editingId,
+        payload: {
+          name: values.name,
+          unit: values.unit,
+          unitPrice: String(Math.round(numberValue(values.price) * 100)),
+          leadTimeHours: Number(values.leadTimeHours),
+          defectGroupId: values.defectGroupId || null,
+        },
+      },
+      {
+        onSuccess: (item) => {
+          reset(emptyForm)
+          setEditingId('')
+          setModalOpen(false)
+          window.setTimeout(() => {
+            document.getElementById(`nomenclature-${item.id}`)?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            })
+          }, 100)
+        },
+      },
+    )
+  })
 
   return (
     <div className="stack">
@@ -182,63 +224,28 @@ export function NomenclaturePage() {
                 ×
               </button>
             </div>
-            <form
-              className="modal-form"
-              onSubmit={(event) => {
-                event.preventDefault()
-                saveItem.mutate(
-                  {
-                    id: editingId,
-                    payload: {
-                      name: form.name,
-                      unit: form.unit,
-                      unitPrice: String(Math.round(numberValue(form.price) * 100)),
-                      leadTimeHours: Number(form.leadTimeHours),
-                      defectGroupId: form.defectGroupId || null,
-                    },
-                  },
-                  {
-                    onSuccess: (item) => {
-                      setForm(emptyForm)
-                      setEditingId('')
-                      setModalOpen(false)
-                      window.setTimeout(() => {
-                        document.getElementById(`nomenclature-${item.id}`)?.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'center',
-                        })
-                      }, 100)
-                    },
-                  },
-                )
-              }}
-            >
+            <form className="modal-form" onSubmit={submit}>
               <label>
                 Имя позиции
                 <input
                   autoFocus
-                  required
-                  minLength="2"
                   maxLength="255"
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm((value) => ({ ...value, name: event.target.value }))
-                  }
+                  {...register('name')}
                   placeholder="Например, Ковер шерстяной"
                 />
+                {errors.name && (
+                  <small className="field-error">{errors.name.message}</small>
+                )}
               </label>
               <label>
                 Единица измерения
                 <select
-                  value={form.unit}
-                  onChange={(event) =>
-                    setForm((value) => ({
-                      ...value,
-                      unit: event.target.value,
-                      length: '',
-                      width: '',
-                    }))
-                  }
+                  {...register('unit', {
+                    onChange: () => {
+                      setValue('length', '')
+                      setValue('width', '')
+                    },
+                  })}
                 >
                   {units.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -249,15 +256,7 @@ export function NomenclaturePage() {
               </label>
               <label>
                 Группа дефектов при приёмке
-                <select
-                  value={form.defectGroupId}
-                  onChange={(event) =>
-                    setForm((value) => ({
-                      ...value,
-                      defectGroupId: event.target.value,
-                    }))
-                  }
-                >
+                <select {...register('defectGroupId')}>
                   <option value="">Общий список — все дефекты</option>
                   {(defectGroups.data ?? []).map((group) => (
                     <option key={group.id} value={group.id}>
@@ -272,18 +271,11 @@ export function NomenclaturePage() {
               <label>
                 Норматив готовности, часов
                 <input
-                  required
                   type="number"
                   min="1"
                   max={24 * 60}
                   step="1"
-                  value={form.leadTimeHours}
-                  onChange={(event) =>
-                    setForm((value) => ({
-                      ...value,
-                      leadTimeHours: event.target.value,
-                    }))
-                  }
+                  {...register('leadTimeHours')}
                 />
                 <small>Используется для автоматического расчёта срока заказа.</small>
               </label>
@@ -298,13 +290,7 @@ export function NomenclaturePage() {
                         type="number"
                         min="0.001"
                         step="0.001"
-                        value={form.length}
-                        onChange={(event) =>
-                          setForm((value) => ({
-                            ...value,
-                            length: event.target.value,
-                          }))
-                        }
+                        {...register('length')}
                         placeholder="2"
                       />
                     </label>
@@ -314,13 +300,7 @@ export function NomenclaturePage() {
                         type="number"
                         min="0.001"
                         step="0.001"
-                        value={form.width}
-                        onChange={(event) =>
-                          setForm((value) => ({
-                            ...value,
-                            width: event.target.value,
-                          }))
-                        }
+                        {...register('width')}
                         placeholder="3"
                       />
                     </label>
@@ -337,18 +317,17 @@ export function NomenclaturePage() {
                 <div className="input-suffix">
                   <input
                     aria-label={priceLabels[form.unit]}
-                    required
                     type="number"
                     min="0"
                     step="0.01"
-                    value={form.price}
-                    onChange={(event) =>
-                      setForm((value) => ({ ...value, price: event.target.value }))
-                    }
+                    {...register('price')}
                     placeholder="590"
                   />
                   <span>₽/{unitLabels[form.unit]}</span>
                 </div>
+                {errors.price && (
+                  <small className="field-error">{errors.price.message}</small>
+                )}
               </label>
 
               {preview && (
@@ -378,7 +357,7 @@ export function NomenclaturePage() {
                 >
                   Отмена
                 </button>
-                <button className="primary-button" disabled={saveItem.isPending}>
+                <button className="primary-button" disabled={saveItem.isPending || isSubmitting}>
                   {saveItem.isPending
                     ? 'Сохраняем…'
                     : editingId

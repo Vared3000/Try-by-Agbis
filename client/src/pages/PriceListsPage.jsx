@@ -1,4 +1,6 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { useServices } from '../queries/services.js'
 import { useNomenclature } from '../queries/nomenclature.js'
@@ -13,6 +15,11 @@ import {
 } from '../mutations/price-lists.js'
 import { NomenclatureCombobox } from '../features/orders/NomenclatureCombobox.jsx'
 import { ServiceCombobox } from '../features/orders/ServiceCombobox.jsx'
+import {
+  priceEditSchema,
+  priceListCreateSchema,
+  priceListItemSchema,
+} from '../schemas/price-lists.js'
 import { apiError, money } from './workspace-utils.js'
 
 const unitLabels = {
@@ -27,19 +34,47 @@ export function PriceListsPage() {
   const [selectedId, setSelectedId] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [showAllStatuses, setShowAllStatuses] = useState(false)
-  const [listForm, setListForm] = useState({
-    name: '',
-    validFrom: new Date().toISOString().slice(0, 10),
-    validTo: '',
-    status: 'active',
+  const [editingPriceId, setEditingPriceId] = useState('')
+  const {
+    register: registerList,
+    handleSubmit: handleListSubmit,
+    reset: resetListForm,
+    formState: { errors: listErrors },
+  } = useForm({
+    resolver: zodResolver(priceListCreateSchema),
+    defaultValues: {
+      name: '',
+      validFrom: new Date().toISOString().slice(0, 10),
+      validTo: '',
+      status: 'active',
+    },
   })
-  const [itemForm, setItemForm] = useState({
-    kind: 'nomenclature',
-    nomenclatureItemId: '',
-    serviceId: '',
-    price: '',
+  const {
+    register: registerItem,
+    handleSubmit: handleItemSubmit,
+    reset: resetItemForm,
+    setValue: setItemFormValue,
+    control: itemFormControl,
+    formState: { errors: itemErrors },
+  } = useForm({
+    resolver: zodResolver(priceListItemSchema),
+    defaultValues: {
+      kind: 'nomenclature',
+      nomenclatureItemId: '',
+      serviceId: '',
+      price: '',
+    },
   })
-  const [editingPrice, setEditingPrice] = useState({ id: '', price: '' })
+  const itemForm = useWatch({ control: itemFormControl })
+  const {
+    register: registerEditPrice,
+    handleSubmit: handleEditPriceSubmit,
+    reset: resetEditPrice,
+    formState: { errors: editPriceErrors },
+  } = useForm({
+    resolver: zodResolver(priceEditSchema),
+    defaultValues: { price: '' },
+  })
   const lists = usePriceLists()
   const effectiveId =
     selectedId ||
@@ -71,6 +106,57 @@ export function PriceListsPage() {
   const removePrice = useRemovePriceListItem(effectiveId)
   const editable = detail.data?.status !== 'inactive'
 
+  const submitList = handleListSubmit((values) => {
+    createList.mutate(
+      { ...values, validTo: values.validTo || null },
+      {
+        onSuccess: (row) => {
+          setSelectedId(row.id)
+          resetListForm({ ...values, name: '' })
+          setCreateOpen(false)
+        },
+      },
+    )
+  })
+
+  const submitItem = handleItemSubmit((values) => {
+    addPrice.mutate(
+      {
+        ...(values.kind === 'service'
+          ? { serviceId: values.serviceId, garmentTypeId: null }
+          : { nomenclatureItemId: values.nomenclatureItemId }),
+        price: String(Math.round(Number(values.price.replace(',', '.')) * 100)),
+      },
+      {
+        onSuccess: () => {
+          resetItemForm({
+            kind: values.kind,
+            nomenclatureItemId: '',
+            serviceId: '',
+            price: '',
+          })
+        },
+      },
+    )
+  })
+
+  const submitEditPrice = handleEditPriceSubmit((values) => {
+    updatePrice.mutate(
+      {
+        itemId: editingPriceId,
+        payload: {
+          price: String(Math.round(Number(String(values.price).replace(',', '.')) * 100)),
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditingPriceId('')
+          resetEditPrice({ price: '' })
+        },
+      },
+    )
+  })
+
   return (
     <div className="workspace-grid price-layout">
       <section className="panel">
@@ -85,67 +171,28 @@ export function PriceListsPage() {
             + Создать прайс-лист
           </button>
         ) : (
-          <form
-            className="form-grid"
-            onSubmit={(event) => {
-              event.preventDefault()
-              createList.mutate(
-                { ...listForm, validTo: listForm.validTo || null },
-                {
-                  onSuccess: (row) => {
-                    setSelectedId(row.id)
-                    setListForm((value) => ({ ...value, name: '' }))
-                    setCreateOpen(false)
-                  },
-                },
-              )
-            }}
-          >
+          <form className="form-grid" onSubmit={submitList}>
             <label className="field-wide">
               Название
-              <input
-                autoFocus
-                required
-                value={listForm.name}
-                onChange={(event) =>
-                  setListForm((value) => ({ ...value, name: event.target.value }))
-                }
-                placeholder="Основной прайс"
-              />
+              <input autoFocus {...registerList('name')} placeholder="Основной прайс" />
+              {listErrors.name && (
+                <small className="field-error">{listErrors.name.message}</small>
+              )}
             </label>
             <label>
               Действует с
-              <input
-                type="date"
-                required
-                value={listForm.validFrom}
-                onChange={(event) =>
-                  setListForm((value) => ({ ...value, validFrom: event.target.value }))
-                }
-              />
+              <input type="date" {...registerList('validFrom')} />
             </label>
             <label>
               Статус
-              <select
-                value={listForm.status}
-                onChange={(event) =>
-                  setListForm((value) => ({ ...value, status: event.target.value }))
-                }
-              >
+              <select {...registerList('status')}>
                 <option value="draft">Черновик</option>
                 <option value="active">Активный</option>
               </select>
             </label>
             <label className="field-wide">
               Действует до
-              <input
-                type="date"
-                value={listForm.validTo}
-                min={listForm.validFrom}
-                onChange={(event) =>
-                  setListForm((value) => ({ ...value, validTo: event.target.value }))
-                }
-              />
+              <input type="date" {...registerList('validTo')} />
             </label>
             {createList.error && (
               <p className="form-error field-wide">{apiError(createList.error)}</p>
@@ -236,30 +283,7 @@ export function PriceListsPage() {
           </div>
         </div>
         {effectiveId && editable && (
-          <form
-            className="inline-form price-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              addPrice.mutate(
-                {
-                  ...(itemForm.kind === 'service'
-                    ? { serviceId: itemForm.serviceId, garmentTypeId: null }
-                    : { nomenclatureItemId: itemForm.nomenclatureItemId }),
-                  price: String(Math.round(Number(itemForm.price.replace(',', '.')) * 100)),
-                },
-                {
-                  onSuccess: () => {
-                    setItemForm((value) => ({
-                      kind: value.kind,
-                      nomenclatureItemId: '',
-                      serviceId: '',
-                      price: '',
-                    }))
-                  },
-                },
-              )
-            }}
-          >
+          <form className="inline-form price-form" onSubmit={submitItem}>
             <div
               className="price-kind-switch field-wide"
               role="group"
@@ -269,7 +293,7 @@ export function PriceListsPage() {
                 type="button"
                 className={itemForm.kind === 'nomenclature' ? 'active' : ''}
                 onClick={() =>
-                  setItemForm({
+                  resetItemForm({
                     kind: 'nomenclature',
                     nomenclatureItemId: '',
                     serviceId: '',
@@ -283,7 +307,7 @@ export function PriceListsPage() {
                 type="button"
                 className={itemForm.kind === 'service' ? 'active' : ''}
                 onClick={() =>
-                  setItemForm({
+                  resetItemForm({
                     kind: 'service',
                     nomenclatureItemId: '',
                     serviceId: '',
@@ -295,43 +319,52 @@ export function PriceListsPage() {
               </button>
             </div>
             {itemForm.kind === 'nomenclature' ? (
-              <NomenclatureCombobox
-                items={availableNomenclature}
-                value={itemForm.nomenclatureItemId}
-                onChange={(nomenclatureItemId) => {
-                  const selected = nomenclature.data?.find(
-                    (row) => row.id === nomenclatureItemId,
-                  )
-                  setItemForm((value) => ({
-                    ...value,
-                    nomenclatureItemId,
-                    price: selected ? String(Number(selected.unitPrice) / 100) : '',
-                  }))
-                }}
+              <Controller
+                control={itemFormControl}
+                name="nomenclatureItemId"
+                render={({ field }) => (
+                  <NomenclatureCombobox
+                    items={availableNomenclature}
+                    value={field.value}
+                    onChange={(nomenclatureItemId) => {
+                      const selected = nomenclature.data?.find(
+                        (row) => row.id === nomenclatureItemId,
+                      )
+                      field.onChange(nomenclatureItemId)
+                      setItemFormValue(
+                        'price',
+                        selected ? String(Number(selected.unitPrice) / 100) : '',
+                      )
+                    }}
+                  />
+                )}
               />
             ) : (
-              <ServiceCombobox
-                items={availableServices}
-                label="Дополнительная услуга"
-                value={itemForm.serviceId}
-                onChange={(serviceId) =>
-                  setItemForm((value) => ({ ...value, serviceId }))
-                }
+              <Controller
+                control={itemFormControl}
+                name="serviceId"
+                render={({ field }) => (
+                  <ServiceCombobox
+                    items={availableServices}
+                    label="Дополнительная услуга"
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
               />
             )}
             <label>
               Цена за единицу, ₽
               <input
-                required
                 min="0"
                 step="0.01"
                 type="number"
-                value={itemForm.price}
-                onChange={(event) =>
-                  setItemForm((value) => ({ ...value, price: event.target.value }))
-                }
+                {...registerItem('price')}
                 placeholder="590"
               />
+              {itemErrors.price && (
+                <small className="field-error">{itemErrors.price.message}</small>
+              )}
             </label>
             <button
               className="primary-button"
@@ -384,54 +417,28 @@ export function PriceListsPage() {
                       : 'Старая строка прайса'}
                 </span>
               </div>
-              {editingPrice.id === row.id ? (
-                <form
-                  className="price-row-editor"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    updatePrice.mutate(
-                      {
-                        itemId: editingPrice.id,
-                        payload: {
-                          price: String(
-                            Math.round(
-                              Number(String(editingPrice.price).replace(',', '.')) * 100,
-                            ),
-                          ),
-                        },
-                      },
-                      {
-                        onSuccess: () => {
-                          setEditingPrice({ id: '', price: '' })
-                        },
-                      },
-                    )
-                  }}
-                >
+              {editingPriceId === row.id ? (
+                <form className="price-row-editor" onSubmit={submitEditPrice}>
                   <input
-                    required
                     autoFocus
                     type="number"
                     min="0"
                     step="0.01"
-                    value={editingPrice.price}
-                    onChange={(event) =>
-                      setEditingPrice((value) => ({
-                        ...value,
-                        price: event.target.value,
-                      }))
-                    }
+                    {...registerEditPrice('price')}
                     aria-label={`Цена для ${
                       row.nomenclature?.name || row.service?.name || 'позиции'
                     }`}
                   />
+                  {editPriceErrors.price && (
+                    <small className="field-error">{editPriceErrors.price.message}</small>
+                  )}
                   <button className="text-button" disabled={updatePrice.isPending}>
                     Сохранить
                   </button>
                   <button
                     type="button"
                     className="text-button"
-                    onClick={() => setEditingPrice({ id: '', price: '' })}
+                    onClick={() => setEditingPriceId('')}
                   >
                     Отмена
                   </button>
@@ -443,12 +450,10 @@ export function PriceListsPage() {
                     <>
                       <button
                         className="text-button"
-                        onClick={() =>
-                          setEditingPrice({
-                            id: row.id,
-                            price: String(Number(row.price) / 100),
-                          })
-                        }
+                        onClick={() => {
+                          setEditingPriceId(row.id)
+                          resetEditPrice({ price: String(Number(row.price) / 100) })
+                        }}
                       >
                         Изменить
                       </button>

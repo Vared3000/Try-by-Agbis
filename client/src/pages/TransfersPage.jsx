@@ -1,4 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 
 import { OrderItemPickerModal } from '../features/transfers/OrderItemPickerModal.jsx'
 import { useAuthContext } from '../queries/auth-context.js'
@@ -10,6 +12,7 @@ import {
   useRemoveTransferItem,
   useSendTransfer,
 } from '../mutations/transfers.js'
+import { transferCreateSchema } from '../schemas/transfers.js'
 import { apiError } from './workspace-utils.js'
 
 const statusLabels = {
@@ -28,13 +31,20 @@ const itemStatusLabels = {
 export function TransfersPage() {
   const scannerRef = useRef(null)
   const [selectedId, setSelectedId] = useState('')
-  const [fromLocationId, setFromLocationId] = useState('')
-  const [toLocationId, setToLocationId] = useState('')
-  const [notes, setNotes] = useState('')
+  const {
+    control: transferFormControl,
+    register: registerTransferForm,
+    handleSubmit: handleTransferSubmit,
+    reset: resetTransferForm,
+  } = useForm({
+    resolver: zodResolver(transferCreateSchema),
+    defaultValues: { fromLocationId: '', toLocationId: '', notes: '' },
+  })
   const [scanCode, setScanCode] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [receivedIds, setReceivedIds] = useState([])
   const [receivedForKey, setReceivedForKey] = useState('')
+  const focusedForIdRef = useRef('')
 
   const context = useAuthContext()
   const transfers = useTransfers()
@@ -50,11 +60,19 @@ export function TransfersPage() {
       ),
     [context.data],
   )
-  const effectiveFromLocationId = fromLocationId || locations[0]?.id || ''
+  const transferForm = useWatch({ control: transferFormControl })
+  const effectiveFromLocationId = transferForm.fromLocationId || locations[0]?.id || ''
   const effectiveToLocationId =
-    toLocationId ||
+    transferForm.toLocationId ||
     locations.find((location) => location.id !== effectiveFromLocationId)?.id ||
     ''
+
+  useEffect(() => {
+    if (selectedId && selectedId !== focusedForIdRef.current) {
+      focusedForIdRef.current = selectedId
+      window.requestAnimationFrame(() => scannerRef.current?.focus())
+    }
+  }, [selectedId])
 
   const receivedKey =
     detail.data?.status === 'in_transit' ? `${detail.data.id}:${detail.data.status}` : ''
@@ -92,61 +110,74 @@ export function TransfersPage() {
         </div>
         <form
           className="transfer-create-form"
-          onSubmit={(event) => {
-            event.preventDefault()
+          onSubmit={handleTransferSubmit((values) => {
             createTransfer.mutate(
               {
                 fromLocationId: effectiveFromLocationId,
                 toLocationId: effectiveToLocationId,
-                notes: notes.trim() || null,
+                notes: values.notes.trim() || null,
               },
               {
                 onSuccess: (created) => {
                   setSelectedId(created.id)
-                  setNotes('')
-                  window.requestAnimationFrame(() => scannerRef.current?.focus())
+                  resetTransferForm({
+                    fromLocationId: values.fromLocationId,
+                    toLocationId: values.toLocationId,
+                    notes: '',
+                  })
                 },
               },
             )
-          }}
+          })}
         >
           <label>
             Откуда
-            <select
-              value={effectiveFromLocationId}
-              onChange={(event) => setFromLocationId(event.target.value)}
-              required
-            >
-              <option value="">Выберите пункт</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name} · {location.branchName}
-                </option>
-              ))}
-            </select>
+            <Controller
+              control={transferFormControl}
+              name="fromLocationId"
+              render={({ field }) => (
+                <select
+                  required
+                  value={field.value || effectiveFromLocationId}
+                  onChange={(event) => field.onChange(event.target.value)}
+                >
+                  <option value="">Выберите пункт</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name} · {location.branchName}
+                    </option>
+                  ))}
+                </select>
+              )}
+            />
           </label>
           <label>
             Куда
-            <select
-              value={effectiveToLocationId}
-              onChange={(event) => setToLocationId(event.target.value)}
-              required
-            >
-              <option value="">Выберите пункт</option>
-              {locations
-                .filter((location) => location.id !== effectiveFromLocationId)
-                .map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name} · {location.branchName}
-                  </option>
-                ))}
-            </select>
+            <Controller
+              control={transferFormControl}
+              name="toLocationId"
+              render={({ field }) => (
+                <select
+                  required
+                  value={field.value || effectiveToLocationId}
+                  onChange={(event) => field.onChange(event.target.value)}
+                >
+                  <option value="">Выберите пункт</option>
+                  {locations
+                    .filter((location) => location.id !== effectiveFromLocationId)
+                    .map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name} · {location.branchName}
+                      </option>
+                    ))}
+                </select>
+              )}
+            />
           </label>
           <label>
             Комментарий
             <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
+              {...registerTransferForm('notes')}
               placeholder="Например: плановая отправка в цех"
               rows={2}
             />

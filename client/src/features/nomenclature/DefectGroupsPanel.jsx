@@ -1,19 +1,33 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
 
 import { apiError } from '../../pages/workspace-utils.js'
 import { useCatalog } from '../../queries/catalog.js'
 import { useCreateCatalogEntry } from '../../mutations/catalog.js'
 import { useDefectGroups } from '../../queries/defect-groups.js'
 import { useArchiveDefectGroup, useSaveDefectGroup } from '../../mutations/defect-groups.js'
+import { defectGroupSchema } from '../../schemas/defect-groups.js'
 
 const emptyForm = { name: '', defectIds: [] }
 
 export function DefectGroupsPanel({ onHide }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState('')
-  const [form, setForm] = useState(emptyForm)
   const [newDefectName, setNewDefectName] = useState('')
+  const {
+    register,
+    handleSubmit,
+    reset,
+    getValues,
+    setValue,
+    control,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(defectGroupSchema),
+    defaultValues: emptyForm,
+  })
   const groups = useDefectGroups()
   const defects = useCatalog('defects')
   const save = useSaveDefectGroup()
@@ -30,10 +44,7 @@ export function DefectGroupsPanel({ onHide }) {
     onSuccess: ({ defect, addToGroup }) => {
       setNewDefectName('')
       if (addToGroup) {
-        setForm((value) => ({
-          ...value,
-          defectIds: [...new Set([...value.defectIds, defect.id])],
-        }))
+        setValue('defectIds', [...new Set([...getValues('defectIds'), defect.id])])
       }
     },
   })
@@ -45,12 +56,12 @@ export function DefectGroupsPanel({ onHide }) {
 
   const openCreate = () => {
     setEditingId('')
-    setForm(emptyForm)
+    reset(emptyForm)
     setModalOpen(true)
   }
   const openEdit = (group) => {
     setEditingId(group.id)
-    setForm({
+    reset({
       name: group.name,
       defectIds: (group.defects ?? []).map((defect) => defect.id),
     })
@@ -184,32 +195,25 @@ export function DefectGroupsPanel({ onHide }) {
             </div>
             <form
               className="modal-form"
-              onSubmit={(event) => {
-                event.preventDefault()
+              onSubmit={handleSubmit((values) => {
                 save.mutate(
-                  { id: editingId, payload: form },
+                  { id: editingId, payload: values },
                   {
                     onSuccess: () => {
                       setModalOpen(false)
                       setEditingId('')
-                      setForm(emptyForm)
+                      reset(emptyForm)
                     },
                   },
                 )
-              }}
+              })}
             >
               <label>
                 Название группы
-                <input
-                  autoFocus
-                  required
-                  minLength="2"
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm((value) => ({ ...value, name: event.target.value }))
-                  }
-                  placeholder="Например, Верхняя одежда"
-                />
+                <input autoFocus {...register('name')} placeholder="Например, Верхняя одежда" />
+                {errors.name && (
+                  <small className="field-error">{errors.name.message}</small>
+                )}
               </label>
               <div className="defect-create-inline">
                 <label>
@@ -236,17 +240,22 @@ export function DefectGroupsPanel({ onHide }) {
                 <div>
                   {(defects.data ?? []).map((defect) => (
                     <label key={defect.id}>
-                      <input
-                        type="checkbox"
-                        checked={form.defectIds.includes(defect.id)}
-                        onChange={() =>
-                          setForm((value) => ({
-                            ...value,
-                            defectIds: value.defectIds.includes(defect.id)
-                              ? value.defectIds.filter((id) => id !== defect.id)
-                              : [...value.defectIds, defect.id],
-                          }))
-                        }
+                      <Controller
+                        control={control}
+                        name="defectIds"
+                        render={({ field }) => (
+                          <input
+                            type="checkbox"
+                            checked={field.value.includes(defect.id)}
+                            onChange={() =>
+                              field.onChange(
+                                field.value.includes(defect.id)
+                                  ? field.value.filter((id) => id !== defect.id)
+                                  : [...field.value, defect.id],
+                              )
+                            }
+                          />
+                        )}
                       />
                       {defect.name}
                     </label>
@@ -270,7 +279,7 @@ export function DefectGroupsPanel({ onHide }) {
                 >
                   Отмена
                 </button>
-                <button className="primary-button" disabled={save.isPending}>
+                <button className="primary-button" disabled={save.isPending || isSubmitting}>
                   {save.isPending ? 'Сохраняем…' : 'Сохранить группу'}
                 </button>
               </div>
