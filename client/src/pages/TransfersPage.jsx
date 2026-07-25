@@ -1,8 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
 
 import { apiClient } from '../api/client.js'
 import { OrderItemPickerModal } from '../features/transfers/OrderItemPickerModal.jsx'
+import { useTransfer, useTransfers } from '../queries/transfers.js'
+import {
+  useAddTransferItem,
+  useCreateTransfer,
+  useReceiveTransfer,
+  useRemoveTransferItem,
+  useSendTransfer,
+} from '../mutations/transfers.js'
 import { apiError } from './workspace-utils.js'
 
 const statusLabels = {
@@ -19,7 +27,6 @@ const itemStatusLabels = {
 }
 
 export function TransfersPage() {
-  const queryClient = useQueryClient()
   const scannerRef = useRef(null)
   const [selectedId, setSelectedId] = useState('')
   const [fromLocationId, setFromLocationId] = useState('')
@@ -34,16 +41,9 @@ export function TransfersPage() {
     queryKey: ['auth-context'],
     queryFn: async () => (await apiClient.get('/auth/context')).data.data,
   })
-  const transfers = useQuery({
-    queryKey: ['transfers'],
-    queryFn: async () => (await apiClient.get('/transfers')).data.data,
-  })
+  const transfers = useTransfers()
   const effectiveSelectedId = selectedId || transfers.data?.[0]?.id || ''
-  const detail = useQuery({
-    queryKey: ['transfers', effectiveSelectedId],
-    queryFn: async () => (await apiClient.get(`/transfers/${effectiveSelectedId}`)).data.data,
-    enabled: Boolean(effectiveSelectedId),
-  })
+  const detail = useTransfer(effectiveSelectedId)
   const locations = useMemo(
     () =>
       (context.data?.branches ?? []).flatMap((branch) =>
@@ -67,50 +67,16 @@ export function TransfersPage() {
     setReceivedIds(detail.data.items.map((item) => item.id))
   }
 
-  const refresh = async (id = effectiveSelectedId) => {
-    await queryClient.invalidateQueries({ queryKey: ['transfers'] })
-    if (id) await queryClient.invalidateQueries({ queryKey: ['transfers', id] })
-  }
-
-  const createTransfer = useMutation({
-    mutationFn: () =>
-      apiClient.post('/transfers', {
-        fromLocationId: effectiveFromLocationId,
-        toLocationId: effectiveToLocationId,
-        notes: notes.trim() || null,
-      }),
-    onSuccess: async ({ data }) => {
-      const id = data.data.id
-      setSelectedId(id)
-      setNotes('')
-      await refresh(id)
-      window.requestAnimationFrame(() => scannerRef.current?.focus())
-    },
-  })
-  const addItem = useMutation({
-    mutationFn: (code) =>
-      apiClient.post(`/transfers/${effectiveSelectedId}/items`, { scanCode: code }),
-    onSuccess: async () => {
+  const createTransfer = useCreateTransfer()
+  const addItem = useAddTransferItem(effectiveSelectedId, {
+    onSuccess: () => {
       setScanCode('')
-      await refresh()
       window.requestAnimationFrame(() => scannerRef.current?.focus())
     },
   })
-  const removeItem = useMutation({
-    mutationFn: (itemId) => apiClient.delete(`/transfers/${effectiveSelectedId}/items/${itemId}`),
-    onSuccess: () => refresh(),
-  })
-  const sendTransfer = useMutation({
-    mutationFn: () => apiClient.post(`/transfers/${effectiveSelectedId}/send`),
-    onSuccess: () => refresh(),
-  })
-  const receiveTransfer = useMutation({
-    mutationFn: () =>
-      apiClient.post(`/transfers/${effectiveSelectedId}/receive`, {
-        receivedItemIds: receivedIds,
-      }),
-    onSuccess: () => refresh(),
-  })
+  const removeItem = useRemoveTransferItem(effectiveSelectedId)
+  const sendTransfer = useSendTransfer(effectiveSelectedId)
+  const receiveTransfer = useReceiveTransfer(effectiveSelectedId)
   const error =
     createTransfer.error ||
     addItem.error ||
@@ -132,7 +98,20 @@ export function TransfersPage() {
           className="transfer-create-form"
           onSubmit={(event) => {
             event.preventDefault()
-            createTransfer.mutate()
+            createTransfer.mutate(
+              {
+                fromLocationId: effectiveFromLocationId,
+                toLocationId: effectiveToLocationId,
+                notes: notes.trim() || null,
+              },
+              {
+                onSuccess: (created) => {
+                  setSelectedId(created.id)
+                  setNotes('')
+                  window.requestAnimationFrame(() => scannerRef.current?.focus())
+                },
+              },
+            )
           }}
         >
           <label>
@@ -359,7 +338,7 @@ export function TransfersPage() {
                   <button
                     className="primary-button"
                     disabled={receiveTransfer.isPending}
-                    onClick={() => receiveTransfer.mutate()}
+                    onClick={() => receiveTransfer.mutate(receivedIds)}
                   >
                     Подтвердить приёмку
                   </button>
