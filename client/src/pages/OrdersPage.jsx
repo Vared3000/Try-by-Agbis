@@ -668,7 +668,7 @@ function OrderEditor({
                   <input
                     required
                     type="number"
-                    min="0.001"
+                    min={selectedPosition.unit === 'piece' ? '1' : '0.001'}
                     step={selectedPosition.unit === 'piece' ? '1' : '0.001'}
                     value={itemForm.quantity}
                     onChange={(event) =>
