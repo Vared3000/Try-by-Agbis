@@ -1,4 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
+import { z } from 'zod'
 
 import { apiError, money } from '../../pages/workspace-utils.js'
 import { useCreatePayment } from '../../mutations/payments.js'
@@ -9,12 +12,42 @@ const methodLabels = {
   card: 'картой',
 }
 
+const paymentSchema = z.object({
+  amount: z.string().trim().min(1, 'Введите сумму'),
+  method: z.enum(['cash', 'card'], { message: 'Выберите способ оплаты' }),
+})
+
 export function PaymentModal({ branches, onClose, onPaid, order }) {
   const debt = Math.max(0, Number(order.totalAmount) - Number(order.paidAmount))
-  const [amount, setAmount] = useState(kopecksToRubles(debt))
-  const [method, setMethod] = useState('')
   const [localError, setLocalError] = useState('')
   const payment = useCreatePayment(order, branches)
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: { amount: kopecksToRubles(debt), method: '' },
+  })
+  const method = useWatch({ control, name: 'method' })
+
+  const submit = handleSubmit((values) => {
+    setLocalError('')
+    payment.mutate(
+      { amount: values.amount, method: values.method, debt },
+      {
+        onSuccess: async () => {
+          await onPaid()
+          onClose()
+        },
+        onError: (error) => {
+          setLocalError(error.response ? apiError(error) : error.message)
+        },
+      },
+    )
+  })
 
   return (
     <div
@@ -46,25 +79,7 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
           </button>
         </div>
 
-        <form
-          className="modal-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            setLocalError('')
-            payment.mutate(
-              { amount, method, debt },
-              {
-                onSuccess: async () => {
-                  await onPaid()
-                  onClose()
-                },
-                onError: (error) => {
-                  setLocalError(error.response ? apiError(error) : error.message)
-                },
-              },
-            )
-          }}
-        >
+        <form className="modal-form" onSubmit={submit}>
           <div className="payment-summary">
             <span>Стоимость заказа</span>
             <strong>{money(order.totalAmount)}</strong>
@@ -77,15 +92,12 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
           <label>
             Сумма оплаты
             <div className="input-suffix">
-              <input
-                required
-                autoFocus
-                inputMode="decimal"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-              />
+              <input autoFocus inputMode="decimal" {...register('amount')} />
               <span>₽</span>
             </div>
+            {errors.amount && (
+              <small className="field-error">{errors.amount.message}</small>
+            )}
           </label>
 
           <fieldset className="payment-methods">
@@ -93,7 +105,7 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
             <button
               type="button"
               className={method === 'cash' ? 'active' : ''}
-              onClick={() => setMethod('cash')}
+              onClick={() => setValue('method', 'cash', { shouldValidate: true })}
             >
               <span aria-hidden="true">₽</span>
               <strong>Наличные</strong>
@@ -101,7 +113,7 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
             <button
               type="button"
               className={method === 'card' ? 'active' : ''}
-              onClick={() => setMethod('card')}
+              onClick={() => setValue('method', 'card', { shouldValidate: true })}
             >
               <span aria-hidden="true">▣</span>
               <strong>Картой</strong>
@@ -123,7 +135,7 @@ export function PaymentModal({ branches, onClose, onPaid, order }) {
             </button>
             <button
               className="primary-button"
-              disabled={!method || payment.isPending || debt <= 0}
+              disabled={!method || payment.isPending || isSubmitting || debt <= 0}
             >
               {payment.isPending
                 ? 'Проводим оплату…'

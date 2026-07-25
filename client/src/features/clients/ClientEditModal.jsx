@@ -1,20 +1,36 @@
-import { useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from 'react-hook-form'
 
 import { apiError } from '../../pages/workspace-utils.js'
 import { useUpdateClientWithAddress } from '../../mutations/clients.js'
+import { clientEditSchema } from '../../schemas/clients.js'
 
 export function ClientEditModal({ client, onClose }) {
   const primaryAddress =
     client.addresses?.find((address) => address.isPrimary) ?? client.addresses?.[0]
-  const [form, setForm] = useState({
-    fullName: client.fullName,
-    phone: client.phone || '',
-    email: client.email || '',
-    notes: client.notes || '',
-    address: primaryAddress?.address || '',
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(clientEditSchema),
+    defaultValues: {
+      fullName: client.fullName,
+      phone: client.phone || '',
+      email: client.email || '',
+      notes: client.notes || '',
+      address: primaryAddress?.address || '',
+    },
   })
 
   const save = useUpdateClientWithAddress(client.id)
+
+  const submit = handleSubmit((values) => {
+    save.mutate(
+      { ...values, previousAddress: primaryAddress?.address ?? '' },
+      { onSuccess: onClose },
+    )
+  })
 
   return (
     <div
@@ -39,77 +55,41 @@ export function ClientEditModal({ client, onClose }) {
             ×
           </button>
         </div>
-        <form
-          className="modal-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            save.mutate(
-              { ...form, previousAddress: primaryAddress?.address ?? '' },
-              { onSuccess: onClose },
-            )
-          }}
-        >
+        <form className="modal-form" onSubmit={submit}>
           <label>
             ФИО или название
-            <input
-              autoFocus
-              required
-              minLength="2"
-              value={form.fullName}
-              onChange={(event) =>
-                setForm((value) => ({ ...value, fullName: event.target.value }))
-              }
-            />
+            <input autoFocus {...register('fullName')} />
+            {errors.fullName && (
+              <small className="field-error">{errors.fullName.message}</small>
+            )}
           </label>
           <label>
             Телефон
-            <input
-              value={form.phone}
-              onChange={(event) =>
-                setForm((value) => ({ ...value, phone: event.target.value }))
-              }
-              placeholder="+7 900 000-00-00"
-            />
+            <input {...register('phone')} placeholder="+7 900 000-00-00" />
           </label>
           <label>
             Email
-            <input
-              type="email"
-              value={form.email}
-              onChange={(event) =>
-                setForm((value) => ({ ...value, email: event.target.value }))
-              }
-            />
+            <input type="email" {...register('email')} />
+            {errors.email && <small className="field-error">{errors.email.message}</small>}
           </label>
           <label>
             Адрес доставки
-            <input
-              required
-              minLength="5"
-              value={form.address}
-              onChange={(event) =>
-                setForm((value) => ({ ...value, address: event.target.value }))
-              }
-              placeholder="Город, улица, дом, квартира"
-            />
+            <input {...register('address')} placeholder="Город, улица, дом, квартира" />
+            {errors.address && (
+              <small className="field-error">{errors.address.message}</small>
+            )}
             <small>Нужен для доставки и показывается в квитанции.</small>
           </label>
           <label>
             Комментарий
-            <textarea
-              rows="3"
-              value={form.notes}
-              onChange={(event) =>
-                setForm((value) => ({ ...value, notes: event.target.value }))
-              }
-            />
+            <textarea rows="3" {...register('notes')} />
           </label>
           {save.error && <p className="form-error">{apiError(save.error)}</p>}
           <div className="modal-actions">
             <button type="button" className="secondary-button" onClick={onClose}>
               Отмена
             </button>
-            <button className="primary-button" disabled={save.isPending}>
+            <button className="primary-button" disabled={save.isPending || isSubmitting}>
               {save.isPending ? 'Сохраняем…' : 'Сохранить'}
             </button>
           </div>

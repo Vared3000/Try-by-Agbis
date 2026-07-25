@@ -1,14 +1,25 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
 
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { useClientSearch } from '../queries/clients.js'
 import { useCreateClientWithAddress } from '../mutations/clients.js'
+import { clientContactSchema } from '../schemas/clients.js'
 import { apiError } from './workspace-utils.js'
 
 export function ClientPickerModal({ onClose, onSelect }) {
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState({ fullName: '', phone: '', email: '', address: '' })
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(clientContactSchema),
+    defaultValues: { fullName: '', phone: '', email: '', address: '' },
+  })
   const deferredSearch = useDebouncedValue(search.trim())
   const normalizedSearch = search.trim()
   const clients = useClientSearch(deferredSearch)
@@ -21,7 +32,7 @@ export function ClientPickerModal({ onClose, onSelect }) {
 
   const startCreating = () => {
     const looksLikePhone = /^[+\d()\s-]{5,}$/.test(search.trim())
-    setForm({
+    reset({
       fullName: looksLikePhone ? '' : search.trim(),
       phone: looksLikePhone ? search.trim() : '',
       email: '',
@@ -131,15 +142,14 @@ export function ClientPickerModal({ onClose, onSelect }) {
         ) : (
           <form
             className="modal-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              createClient.mutate(form, {
+            onSubmit={handleSubmit((values) => {
+              createClient.mutate(values, {
                 onSuccess: (client) => {
                   onSelect(client)
                   onClose()
                 },
               })
-            }}
+            })}
           >
             <button
               type="button"
@@ -150,47 +160,28 @@ export function ClientPickerModal({ onClose, onSelect }) {
             </button>
             <label>
               ФИО или название
-              <input
-                autoFocus
-                required
-                minLength="2"
-                value={form.fullName}
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, fullName: event.target.value }))
-                }
-              />
+              <input autoFocus {...register('fullName')} />
+              {errors.fullName && (
+                <small className="field-error">{errors.fullName.message}</small>
+              )}
             </label>
             <label>
               Телефон
-              <input
-                value={form.phone}
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, phone: event.target.value }))
-                }
-                placeholder="+7 900 000-00-00"
-              />
+              <input {...register('phone')} placeholder="+7 900 000-00-00" />
             </label>
             <label>
               Email
-              <input
-                type="email"
-                value={form.email}
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, email: event.target.value }))
-                }
-              />
+              <input type="email" {...register('email')} />
+              {errors.email && (
+                <small className="field-error">{errors.email.message}</small>
+              )}
             </label>
             <label>
               Адрес доставки
-              <input
-                required
-                minLength="5"
-                value={form.address}
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, address: event.target.value }))
-                }
-                placeholder="Город, улица, дом, квартира"
-              />
+              <input {...register('address')} placeholder="Город, улица, дом, квартира" />
+              {errors.address && (
+                <small className="field-error">{errors.address.message}</small>
+              )}
               <small>Нужен для доставки и будет показан в квитанции.</small>
             </label>
             {createClient.error && (
@@ -204,7 +195,10 @@ export function ClientPickerModal({ onClose, onSelect }) {
               >
                 Отмена
               </button>
-              <button className="primary-button" disabled={createClient.isPending}>
+              <button
+                className="primary-button"
+                disabled={createClient.isPending || isSubmitting}
+              >
                 {createClient.isPending ? 'Создаём…' : 'Создать и выбрать'}
               </button>
             </div>

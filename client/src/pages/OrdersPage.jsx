@@ -1,5 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
@@ -24,6 +26,7 @@ import { OrderEditor } from '../features/orders/OrderEditor.jsx'
 import { OrderListPanel } from '../features/orders/OrderListPanel.jsx'
 import { useOrderHotkeys } from '../features/orders/useOrderHotkeys.js'
 import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
+import { orderCreateSchema } from '../schemas/orders.js'
 import { ClientPickerModal } from './ClientPickerModal.jsx'
 import { apiError, isClientFacingLocation, openApiDocument } from './workspace-utils.js'
 
@@ -46,19 +49,30 @@ export function OrdersPage() {
   const [createFormOpen, setCreateFormOpen] = useState(Boolean(requestedClientId))
   const [orderSearch, setOrderSearch] = useState('')
   const debouncedOrderSearch = useDebouncedValue(orderSearch)
-  const [orderForm, setOrderForm] = useState({
-    clientId: requestedClientId,
-    branchId: '',
-    acceptanceLocationId: '',
-    issueLocationId: '',
-    priceListId: '',
-    acceptedOn: '',
-    dueAt: '',
-    urgency: 'normal',
-    notificationPhone: '',
-    isRework: false,
-    notes: '',
+  const today = new Date().toISOString().slice(0, 10)
+  const {
+    control: orderFormControl,
+    register: registerOrderForm,
+    handleSubmit: handleOrderFormSubmit,
+    setValue: setOrderFormValue,
+    formState: { errors: orderFormErrors, isSubmitting: orderFormSubmitting },
+  } = useForm({
+    resolver: zodResolver(orderCreateSchema),
+    defaultValues: {
+      clientId: requestedClientId,
+      branchId: '',
+      acceptanceLocationId: '',
+      issueLocationId: '',
+      priceListId: '',
+      acceptedOn: today,
+      dueAt: '',
+      urgency: 'normal',
+      notificationPhone: '',
+      isRework: false,
+      notes: '',
+    },
   })
+  const orderForm = useWatch({ control: orderFormControl })
   const [itemForm, setItemForm] = useState({
     nomenclatureItemId: '',
     materialId: '',
@@ -83,7 +97,6 @@ export function OrdersPage() {
   const defects = useCatalog('defects')
   const contaminations = useCatalog('contaminations')
   const priceLists = usePriceLists()
-  const today = new Date().toISOString().slice(0, 10)
   const activePriceLists = (priceLists.data ?? []).filter(
     (row) =>
       row.status === 'active' &&
@@ -216,48 +229,44 @@ export function OrdersPage() {
           />
         ) : createFormOpen ? (
           <OrderCreatePanel
+            control={orderFormControl}
+            register={registerOrderForm}
+            errors={orderFormErrors}
+            watchedClientId={orderForm.clientId}
             effectiveLocationId={effectiveLocationId}
             effectivePriceListId={effectivePriceListId}
             errorMessage={createOrder.error ? apiError(createOrder.error) : ''}
-            form={{
-              ...orderForm,
-              notificationPhone:
-                orderForm.notificationPhone || selectedClient?.phone || '',
-            }}
             isPending={createOrder.isPending}
+            isSubmitting={orderFormSubmitting}
             issueLocations={issueLocations}
             locations={locations}
             priceLists={activePriceLists}
-            today={today}
             onChooseClient={() => setClientPickerOpen(true)}
-            onFormChange={(changes) =>
-              setOrderForm((value) => ({ ...value, ...changes }))
-            }
-            onSubmit={() =>
+            onSubmit={handleOrderFormSubmit((values) =>
               createOrder.mutate(
                 {
-                  clientId: orderForm.clientId,
+                  clientId: values.clientId,
                   branchId: effectiveBranchId,
                   acceptanceLocationId: effectiveLocationId,
                   issueLocationId: effectiveIssueLocationId,
                   priceListId: effectivePriceListId || null,
-                  acceptedOn: orderForm.acceptedOn || today,
-                  dueAt: orderForm.dueAt
-                    ? new Date(`${orderForm.dueAt}T18:00:00`).toISOString()
+                  acceptedOn: values.acceptedOn || today,
+                  dueAt: values.dueAt
+                    ? new Date(`${values.dueAt}T18:00:00`).toISOString()
                     : null,
-                  urgency: orderForm.urgency,
+                  urgency: values.urgency,
                   notificationPhone:
-                    orderForm.notificationPhone || selectedClient?.phone || null,
-                  isRework: orderForm.isRework,
-                  notes: orderForm.notes || null,
+                    values.notificationPhone || selectedClient?.phone || null,
+                  isRework: values.isRework,
+                  notes: values.notes || null,
                 },
                 {
                   onSuccess: (created) => {
                     navigate(`/orders/${created.id}`)
                   },
                 },
-              )
-            }
+              ),
+            )}
             selectedClient={selectedClient}
           />
         ) : (
@@ -285,11 +294,10 @@ export function OrdersPage() {
               if (current.some((row) => row.id === client.id)) return current
               return [client, ...current]
             })
-            setOrderForm((value) => ({
-              ...value,
-              clientId: client.id,
-              notificationPhone: value.notificationPhone || client.phone || '',
-            }))
+            setOrderFormValue('clientId', client.id)
+            if (!orderForm.notificationPhone && client.phone) {
+              setOrderFormValue('notificationPhone', client.phone)
+            }
           }}
         />
       )}

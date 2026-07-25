@@ -1,27 +1,25 @@
+import { Controller } from 'react-hook-form'
+
 export function OrderCreatePanel({
+  control,
+  register,
+  errors,
   effectiveLocationId,
   effectivePriceListId,
   errorMessage,
-  form,
   isPending,
+  isSubmitting,
   issueLocations,
   locations,
   priceLists,
-  today,
   onChooseClient,
-  onFormChange,
   onSubmit,
   selectedClient,
+  watchedClientId,
 }) {
   return (
     <div className="order-create-card">
-      <form
-        className="form-grid"
-        onSubmit={(event) => {
-          event.preventDefault()
-          onSubmit()
-        }}
-      >
+      <form className="form-grid" onSubmit={onSubmit}>
         <div className="client-selection field-wide">
           {selectedClient ? (
             <div>
@@ -48,68 +46,79 @@ export function OrderCreatePanel({
           <button type="button" className="secondary-button" onClick={onChooseClient}>
             {selectedClient ? 'Сменить клиента' : 'Выбрать клиента'}
           </button>
+          {errors.clientId && (
+            <small className="field-error">{errors.clientId.message}</small>
+          )}
         </div>
 
         {priceLists.length > 0 && (
           <label>
             Прайс-лист
-            <select
-              value={effectivePriceListId}
-              onChange={(event) => onFormChange({ priceListId: event.target.value })}
-            >
-              {priceLists.map((list) => (
-                <option key={list.id} value={list.id}>
-                  {list.name}
-                </option>
-              ))}
-            </select>
+            <Controller
+              control={control}
+              name="priceListId"
+              render={({ field }) => (
+                <select
+                  value={field.value || effectivePriceListId}
+                  onChange={(event) => field.onChange(event.target.value)}
+                >
+                  {priceLists.map((list) => (
+                    <option key={list.id} value={list.id}>
+                      {list.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            />
           </label>
         )}
         <label>
           Точка приёма
-          <select
-            required
-            value={effectiveLocationId}
-            onChange={(event) =>
-              onFormChange({ acceptanceLocationId: event.target.value })
-            }
-          >
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-          </select>
+          <Controller
+            control={control}
+            name="acceptanceLocationId"
+            render={({ field }) => (
+              <select
+                required
+                value={field.value || effectiveLocationId}
+                onChange={(event) => field.onChange(event.target.value)}
+              >
+                {locations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
         </label>
         <label>
           Точка выдачи
-          <select
-            required
-            value={form.issueLocationId || effectiveLocationId}
-            onChange={(event) => onFormChange({ issueLocationId: event.target.value })}
-          >
-            {issueLocations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-          </select>
+          <Controller
+            control={control}
+            name="issueLocationId"
+            render={({ field }) => (
+              <select
+                required
+                value={field.value || effectiveLocationId}
+                onChange={(event) => field.onChange(event.target.value)}
+              >
+                {issueLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          />
         </label>
         <label>
           Дата приёма
-          <input
-            type="date"
-            value={form.acceptedOn || today}
-            onChange={(event) => onFormChange({ acceptedOn: event.target.value })}
-          />
+          <input type="date" {...register('acceptedOn')} />
         </label>
         <label>
           Дата выдачи
-          <input
-            type="date"
-            value={form.dueAt}
-            onChange={(event) => onFormChange({ dueAt: event.target.value })}
-          />
+          <input type="date" {...register('dueAt')} />
           <small>Оставьте пустым — система рассчитает дату автоматически.</small>
         </label>
         <label>
@@ -117,24 +126,16 @@ export function OrderCreatePanel({
           <input
             type="tel"
             maxLength="32"
-            value={form.notificationPhone}
-            onChange={(event) => onFormChange({ notificationPhone: event.target.value })}
+            {...register('notificationPhone')}
             placeholder="+7 999 000-00-00"
           />
         </label>
         <label>
           Комментарий
-          <input
-            value={form.notes}
-            onChange={(event) => onFormChange({ notes: event.target.value })}
-          />
+          <input {...register('notes')} />
         </label>
         <label className="order-rework-check">
-          <input
-            type="checkbox"
-            checked={form.isRework}
-            onChange={(event) => onFormChange({ isRework: event.target.checked })}
-          />
+          <input type="checkbox" {...register('isRework')} />
           <span>
             <strong>Повторная обработка</strong>
             <small>Возврат или доработка ранее принятого изделия</small>
@@ -144,7 +145,7 @@ export function OrderCreatePanel({
         {errorMessage && <p className="form-error field-wide">{errorMessage}</p>}
         <button
           className="primary-button field-wide"
-          disabled={!form.clientId || !effectiveLocationId || isPending}
+          disabled={!watchedClientId || !effectiveLocationId || isPending || isSubmitting}
         >
           {isPending ? 'Создаём черновик…' : 'Создать черновик заказа'}
         </button>

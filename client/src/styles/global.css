@@ -169,6 +169,11 @@ textarea:focus {
   border-radius: 10px;
   font-size: 0.85rem;
 }
+.field-error {
+  color: #b42318;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
 
 .error-boundary {
   margin: 1.5rem;

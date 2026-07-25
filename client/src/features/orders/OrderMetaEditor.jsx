@@ -1,10 +1,14 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
 
 import { ClientPickerModal } from '../../pages/ClientPickerModal.jsx'
 import { apiError, isClientFacingLocation } from '../../pages/workspace-utils.js'
+import { orderMetaSchema } from '../../schemas/orders.js'
 
 export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onClose }) {
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [displayClient, setDisplayClient] = useState(order.client)
   const issueLocations = branches.flatMap((branch) =>
     (branch.locations ?? [])
       .filter(isClientFacingLocation)
@@ -13,17 +17,40 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
         branchName: branch.name,
       })),
   )
-  const [form, setForm] = useState({
-    clientId: order.clientId,
-    client: order.client,
-    issueLocationId:
-      order.issueLocationId || order.acceptanceLocationId || issueLocations[0]?.id || '',
-    priceListId: order.priceListId || priceLists[0]?.id || '',
-    dueAt: order.dueAt ? new Date(order.dueAt).toLocaleDateString('sv-SE') : '',
-    urgency: order.urgency || 'normal',
-    notificationPhone: order.notificationPhone || order.client?.phone || '',
-    isRework: Boolean(order.isRework),
-    notes: order.notes || '',
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(orderMetaSchema),
+    defaultValues: {
+      clientId: order.clientId,
+      issueLocationId:
+        order.issueLocationId || order.acceptanceLocationId || issueLocations[0]?.id || '',
+      priceListId: order.priceListId || priceLists[0]?.id || '',
+      dueAt: order.dueAt ? new Date(order.dueAt).toLocaleDateString('sv-SE') : '',
+      urgency: order.urgency || 'normal',
+      notificationPhone: order.notificationPhone || order.client?.phone || '',
+      isRework: Boolean(order.isRework),
+      notes: order.notes || '',
+    },
+  })
+
+  const submit = handleSubmit((values) => {
+    updateOrder.mutate(
+      {
+        clientId: values.clientId,
+        issueLocationId: values.issueLocationId,
+        priceListId: values.priceListId || null,
+        dueAt: values.dueAt ? new Date(`${values.dueAt}T18:00:00`).toISOString() : null,
+        urgency: values.urgency,
+        notificationPhone: values.notificationPhone || null,
+        isRework: values.isRework,
+        notes: values.notes || null,
+      },
+      { onSuccess: onClose },
+    )
   })
 
   return (
@@ -50,36 +77,16 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
               ×
             </button>
           </div>
-          <form
-            className="modal-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              updateOrder.mutate(
-                {
-                  clientId: form.clientId,
-                  issueLocationId: form.issueLocationId,
-                  priceListId: form.priceListId || null,
-                  dueAt: form.dueAt
-                    ? new Date(`${form.dueAt}T18:00:00`).toISOString()
-                    : null,
-                  urgency: form.urgency,
-                  notificationPhone: form.notificationPhone || null,
-                  isRework: form.isRework,
-                  notes: form.notes || null,
-                },
-                { onSuccess: onClose },
-              )
-            }}
-          >
+          <form className="modal-form" onSubmit={submit}>
             <div className="client-selection">
               <div>
                 <span className="avatar">
-                  {form.client?.fullName?.slice(0, 1).toUpperCase()}
+                  {displayClient?.fullName?.slice(0, 1).toUpperCase()}
                 </span>
                 <span>
                   <small>Клиент заказа</small>
-                  <strong>{form.client?.fullName}</strong>
-                  <em>{form.client?.phone || 'Телефон не указан'}</em>
+                  <strong>{displayClient?.fullName}</strong>
+                  <em>{displayClient?.phone || 'Телефон не указан'}</em>
                 </span>
               </div>
               <button
@@ -89,20 +96,14 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
               >
                 Сменить клиента
               </button>
+              {errors.clientId && (
+                <small className="field-error">{errors.clientId.message}</small>
+              )}
             </div>
             <div className="form-grid">
               <label>
                 Точка выдачи
-                <select
-                  required
-                  value={form.issueLocationId}
-                  onChange={(event) =>
-                    setForm((value) => ({
-                      ...value,
-                      issueLocationId: event.target.value,
-                    }))
-                  }
-                >
+                <select required {...register('issueLocationId')}>
                   {issueLocations.map((location) => (
                     <option key={location.id} value={location.id}>
                       {location.branchName} · {location.name}
@@ -113,12 +114,7 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
               {priceLists.length > 0 && (
                 <label>
                   Прайс-лист
-                  <select
-                    value={form.priceListId}
-                    onChange={(event) =>
-                      setForm((value) => ({ ...value, priceListId: event.target.value }))
-                    }
-                  >
+                  <select {...register('priceListId')}>
                     {priceLists.map((list) => (
                       <option key={list.id} value={list.id}>
                         {list.name}
@@ -130,13 +126,7 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
               )}
               <label>
                 Срок готовности
-                <input
-                  type="date"
-                  value={form.dueAt}
-                  onChange={(event) =>
-                    setForm((value) => ({ ...value, dueAt: event.target.value }))
-                  }
-                />
+                <input type="date" {...register('dueAt')} />
                 <small>
                   {order.dueDateMode === 'manual'
                     ? 'Дата была установлена вручную.'
@@ -145,15 +135,7 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
               </label>
               <label>
                 Срочность
-                <select
-                  value={form.urgency}
-                  onChange={(event) =>
-                    setForm((value) => ({
-                      ...value,
-                      urgency: event.target.value,
-                    }))
-                  }
-                >
+                <select {...register('urgency')}>
                   <option value="normal">Обычный заказ</option>
                   <option value="urgent">Срочный</option>
                   <option value="express">Экспресс</option>
@@ -161,30 +143,11 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
               </label>
               <label>
                 Телефон для уведомлений
-                <input
-                  type="tel"
-                  maxLength="32"
-                  value={form.notificationPhone}
-                  onChange={(event) =>
-                    setForm((value) => ({
-                      ...value,
-                      notificationPhone: event.target.value,
-                    }))
-                  }
-                />
+                <input type="tel" maxLength="32" {...register('notificationPhone')} />
               </label>
             </div>
             <label className="order-rework-check">
-              <input
-                type="checkbox"
-                checked={form.isRework}
-                onChange={(event) =>
-                  setForm((value) => ({
-                    ...value,
-                    isRework: event.target.checked,
-                  }))
-                }
-              />
+              <input type="checkbox" {...register('isRework')} />
               <span>
                 <strong>Повторная обработка</strong>
                 <small>Возврат или доработка ранее принятого изделия</small>
@@ -194,21 +157,14 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
               <button
                 type="button"
                 className="text-button"
-                onClick={() => setForm((value) => ({ ...value, dueAt: '' }))}
+                onClick={() => setValue('dueAt', '')}
               >
                 Вернуть автоматический расчёт срока
               </button>
             )}
             <label>
               Комментарий
-              <textarea
-                rows="4"
-                maxLength="5000"
-                value={form.notes}
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, notes: event.target.value }))
-                }
-              />
+              <textarea rows="4" maxLength="5000" {...register('notes')} />
             </label>
             {updateOrder.error && (
               <p className="form-error">{apiError(updateOrder.error)}</p>
@@ -217,7 +173,7 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
               <button type="button" className="secondary-button" onClick={onClose}>
                 Отмена
               </button>
-              <button className="primary-button" disabled={updateOrder.isPending}>
+              <button className="primary-button" disabled={updateOrder.isPending || isSubmitting}>
                 Сохранить изменения
               </button>
             </div>
@@ -227,13 +183,10 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
       {pickerOpen && (
         <ClientPickerModal
           onClose={() => setPickerOpen(false)}
-          onSelect={(client) =>
-            setForm((value) => ({
-              ...value,
-              clientId: client.id,
-              client,
-            }))
-          }
+          onSelect={(client) => {
+            setValue('clientId', client.id)
+            setDisplayClient(client)
+          }}
         />
       )}
     </>
