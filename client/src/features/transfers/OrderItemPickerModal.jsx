@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { apiClient } from '../../api/client.js'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue.js'
+import { useOrder } from '../../queries/orders.js'
+import { listOrders } from '../../services/orders.js'
 import { apiError, orderStatusLabel } from '../../pages/workspace-utils.js'
 
 const itemStatusLabels = {
@@ -25,19 +26,10 @@ export function OrderItemPickerModal({ addItem, onClose }) {
 
   const orders = useQuery({
     queryKey: ['transfer-order-lookup', debouncedQuery],
-    queryFn: async () =>
-      (
-        await apiClient.get('/orders', {
-          params: { search: debouncedQuery.trim(), pageSize: 8 },
-        })
-      ).data.data,
+    queryFn: () => listOrders({ search: debouncedQuery.trim(), pageSize: 8 }),
     enabled: searchReady,
   })
-  const orderDetail = useQuery({
-    queryKey: ['order', selectedOrderId],
-    queryFn: async () => (await apiClient.get(`/orders/${selectedOrderId}`)).data.data,
-    enabled: Boolean(selectedOrderId),
-  })
+  const orderDetail = useOrder(selectedOrderId)
 
   return (
     <div
