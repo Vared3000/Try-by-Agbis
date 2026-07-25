@@ -1,8 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
 
-import { apiClient } from '../api/client.js'
 import { OrderItemPickerModal } from '../features/transfers/OrderItemPickerModal.jsx'
+import { useAuthContext } from '../queries/auth-context.js'
 import { useTransfer, useTransfers } from '../queries/transfers.js'
 import {
   useAddTransferItem,
@@ -37,10 +36,7 @@ export function TransfersPage() {
   const [receivedIds, setReceivedIds] = useState([])
   const [receivedForKey, setReceivedForKey] = useState('')
 
-  const context = useQuery({
-    queryKey: ['auth-context'],
-    queryFn: async () => (await apiClient.get('/auth/context')).data.data,
-  })
+  const context = useAuthContext()
   const transfers = useTransfers()
   const effectiveSelectedId = selectedId || transfers.data?.[0]?.id || ''
   const detail = useTransfer(effectiveSelectedId)

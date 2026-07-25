@@ -1,10 +1,9 @@
-import { useMutation } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
-import { apiClient } from '../../api/client.js'
 import { apiError } from '../../pages/workspace-utils.js'
 import { useDeleteFile, useUploadFile } from '../../mutations/files.js'
 import { useUpdateOrderItemMeasurements } from '../../mutations/measurements.js'
+import { useAddOrderItemService } from '../../mutations/orders.js'
 import { getFileBlob } from '../../services/files.js'
 import { availableServicePrices } from './service-options.js'
 import { ServiceCombobox } from './ServiceCombobox.jsx'
@@ -205,12 +204,7 @@ export function ServiceAdder({ item, prices, onChanged }) {
     ...price.service,
     price: price.price,
   }))
-  const addService = useMutation({
-    mutationFn: () =>
-      apiClient.post(`/orders/items/${item.id}/services`, {
-        serviceId,
-        quantity,
-      }),
+  const addService = useAddOrderItemService(item.id, {
     onSuccess: () => {
       setServiceId('')
       setQuantity('1')
@@ -223,7 +217,7 @@ export function ServiceAdder({ item, prices, onChanged }) {
       className="service-adder"
       onSubmit={(event) => {
         event.preventDefault()
-        addService.mutate()
+        addService.mutate({ serviceId, quantity })
       }}
     >
       <div className="service-adder-heading field-wide">

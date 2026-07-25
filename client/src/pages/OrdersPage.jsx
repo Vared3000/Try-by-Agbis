@@ -1,12 +1,25 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
+import { useAuthContext } from '../queries/auth-context.js'
 import { useCatalog } from '../queries/catalog.js'
 import { useNomenclature } from '../queries/nomenclature.js'
 import { clientsKey, useClient, useClients } from '../queries/clients.js'
 import { usePriceList, usePriceLists } from '../queries/price-lists.js'
+import { orderKey, useOrder, useOrders } from '../queries/orders.js'
+import {
+  useAcceptOrder,
+  useAddOrderItem,
+  useCancelOrder,
+  useCreateOrder,
+  useIssueOrderItems,
+  useRemoveOrderItem,
+  useRemoveOrderItemService,
+  useUpdateOrder,
+  useUpdateOrderItemWorkStatus,
+} from '../mutations/orders.js'
 import {
   ChoiceChecks,
   ItemPhotos,
@@ -37,7 +50,6 @@ import {
 } from './workspace-utils.js'
 
 const findName = (rows, id) => rows?.find((row) => row.id === id)?.name
-const finalOrderStatuses = new Set(['issued', 'cancelled'])
 const urgencyLabels = {
   normal: 'Обычный',
   urgent: 'Срочный',
@@ -89,34 +101,10 @@ export function OrdersPage() {
   })
   const [actionError, setActionError] = useState('')
 
-  const context = useQuery({
-    queryKey: ['auth-context'],
-    queryFn: async () => (await apiClient.get('/auth/context')).data.data,
-  })
+  const context = useAuthContext()
   const clients = useClients()
   const requestedClient = useClient(requestedClientId)
-  const orders = useQuery({
-    queryKey: ['orders', debouncedOrderSearch, orderStatus],
-    queryFn: async () => {
-      const rows = (
-        await apiClient.get('/orders', {
-          params: {
-            pageSize: 100,
-            search: debouncedOrderSearch || undefined,
-            status: orderStatus || undefined,
-          },
-        })
-      ).data.data
-      const loadedAt = Date.now()
-      return rows.map((row) => ({
-        ...row,
-        isOverdue:
-          Boolean(row.dueAt) &&
-          !finalOrderStatuses.has(row.status) &&
-          new Date(row.dueAt).getTime() < loadedAt,
-      }))
-    },
-  })
+  const orders = useOrders(debouncedOrderSearch, orderStatus)
   const garments = useCatalog('garment-types')
   const nomenclature = useNomenclature()
   const materials = useCatalog('materials')
@@ -131,11 +119,7 @@ export function OrdersPage() {
       row.validFrom <= today &&
       (!row.validTo || row.validTo >= today),
   )
-  const order = useQuery({
-    queryKey: ['order', selectedOrderId],
-    queryFn: async () => (await apiClient.get(`/orders/${selectedOrderId}`)).data.data,
-    enabled: Boolean(selectedOrderId),
-  })
+  const order = useOrder(selectedOrderId)
   const effectivePriceListId =
     order.data?.priceListId || orderForm.priceListId || activePriceLists[0]?.id || ''
   const prices = usePriceList(effectivePriceListId)
@@ -165,121 +149,14 @@ export function OrdersPage() {
   const selectedClient =
     clients.data?.find((client) => client.id === orderForm.clientId) ??
     (requestedClient.data?.id === orderForm.clientId ? requestedClient.data : null)
-  const createOrder = useMutation({
-    mutationFn: async () =>
-      (
-        await apiClient.post('/orders', {
-          clientId: orderForm.clientId,
-          branchId: effectiveBranchId,
-          acceptanceLocationId: effectiveLocationId,
-          issueLocationId: effectiveIssueLocationId,
-          priceListId: effectivePriceListId || null,
-          acceptedOn: orderForm.acceptedOn || today,
-          dueAt: orderForm.dueAt
-            ? new Date(`${orderForm.dueAt}T18:00:00`).toISOString()
-            : null,
-          urgency: orderForm.urgency,
-          notificationPhone: orderForm.notificationPhone || selectedClient?.phone || null,
-          isRework: orderForm.isRework,
-          notes: orderForm.notes || null,
-        })
-      ).data.data,
-    onSuccess: (created) => {
-      navigate(`/orders/${created.id}`)
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-    },
-  })
-  const addItem = useMutation({
-    mutationFn: async () =>
-      (
-        await apiClient.post(`/orders/${selectedOrderId}/items`, {
-          nomenclatureItemId: itemForm.nomenclatureItemId,
-          materialId: itemForm.materialId || null,
-          colorId: itemForm.colorId || null,
-          description: itemForm.description || null,
-          quantity: itemForm.quantity || undefined,
-          length: itemForm.length || undefined,
-          width: itemForm.width || undefined,
-          defectIds: itemForm.defectIds,
-          contaminationIds: itemForm.contaminationIds,
-        })
-      ).data.data,
-    onSuccess: () => {
-      setItemForm({
-        nomenclatureItemId: '',
-        materialId: '',
-        colorId: '',
-        description: '',
-        quantity: '1',
-        length: '',
-        width: '',
-        defectIds: [],
-        contaminationIds: [],
-      })
-      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
-    },
-  })
-  const updateOrder = useMutation({
-    mutationFn: (input) => apiClient.patch(`/orders/${selectedOrderId}`, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-    },
-  })
-  const acceptOrder = useMutation({
-    mutationFn: () =>
-      apiClient.post(
-        `/orders/${selectedOrderId}/accept`,
-        {},
-        { headers: { 'Idempotency-Key': crypto.randomUUID() } },
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-    },
-  })
-  const removeItem = useMutation({
-    mutationFn: (itemId) => apiClient.delete(`/orders/items/${itemId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-    },
-  })
-  const cancelOrder = useMutation({
-    mutationFn: () =>
-      apiClient.post(`/orders/${selectedOrderId}/cancel`, {
-        reason: 'Отменено из рабочего места приёмки',
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-    },
-  })
-  const issueOrder = useMutation({
-    mutationFn: ({ itemIds, reason }) =>
-      apiClient.post(
-        `/orders/${selectedOrderId}/issues`,
-        {
-          itemIds,
-          paymentOverrideReason: reason || null,
-        },
-        { headers: { 'Idempotency-Key': crypto.randomUUID() } },
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-      queryClient.invalidateQueries({ queryKey: ['reports'] })
-    },
-  })
-  const updateItemWorkStatus = useMutation({
-    mutationFn: ({ itemId, status }) =>
-      apiClient.patch(`/order-items/${itemId}/work-status`, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['order', selectedOrderId] })
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-      queryClient.invalidateQueries({ queryKey: ['production-items'] })
-    },
-  })
+  const createOrder = useCreateOrder()
+  const addItem = useAddOrderItem(selectedOrderId)
+  const updateOrder = useUpdateOrder(selectedOrderId)
+  const acceptOrder = useAcceptOrder(selectedOrderId)
+  const removeItem = useRemoveOrderItem(selectedOrderId)
+  const cancelOrder = useCancelOrder(selectedOrderId)
+  const issueOrder = useIssueOrderItems(selectedOrderId)
+  const updateItemWorkStatus = useUpdateOrderItemWorkStatus(selectedOrderId)
 
   const openDocument = async (url, type) => {
     setActionError('')
@@ -360,7 +237,7 @@ export function OrdersPage() {
             onChanged={() =>
               Promise.all([
                 queryClient.invalidateQueries({
-                  queryKey: ['order', selectedOrderId],
+                  queryKey: orderKey(selectedOrderId),
                 }),
                 queryClient.invalidateQueries({ queryKey: ['orders'] }),
               ])
@@ -385,7 +262,31 @@ export function OrdersPage() {
             onFormChange={(changes) =>
               setOrderForm((value) => ({ ...value, ...changes }))
             }
-            onSubmit={() => createOrder.mutate()}
+            onSubmit={() =>
+              createOrder.mutate(
+                {
+                  clientId: orderForm.clientId,
+                  branchId: effectiveBranchId,
+                  acceptanceLocationId: effectiveLocationId,
+                  issueLocationId: effectiveIssueLocationId,
+                  priceListId: effectivePriceListId || null,
+                  acceptedOn: orderForm.acceptedOn || today,
+                  dueAt: orderForm.dueAt
+                    ? new Date(`${orderForm.dueAt}T18:00:00`).toISOString()
+                    : null,
+                  urgency: orderForm.urgency,
+                  notificationPhone:
+                    orderForm.notificationPhone || selectedClient?.phone || null,
+                  isRework: orderForm.isRework,
+                  notes: orderForm.notes || null,
+                },
+                {
+                  onSuccess: (created) => {
+                    navigate(`/orders/${created.id}`)
+                  },
+                },
+              )
+            }
             selectedClient={selectedClient}
           />
         ) : (
@@ -564,7 +465,34 @@ function OrderEditor({
           className="order-item-form"
           onSubmit={(event) => {
             event.preventDefault()
-            addItem.mutate()
+            addItem.mutate(
+              {
+                nomenclatureItemId: itemForm.nomenclatureItemId,
+                materialId: itemForm.materialId || null,
+                colorId: itemForm.colorId || null,
+                description: itemForm.description || null,
+                quantity: itemForm.quantity || undefined,
+                length: itemForm.length || undefined,
+                width: itemForm.width || undefined,
+                defectIds: itemForm.defectIds,
+                contaminationIds: itemForm.contaminationIds,
+              },
+              {
+                onSuccess: () => {
+                  setItemForm({
+                    nomenclatureItemId: '',
+                    materialId: '',
+                    colorId: '',
+                    description: '',
+                    quantity: '1',
+                    length: '',
+                    width: '',
+                    defectIds: [],
+                    contaminationIds: [],
+                  })
+                },
+              },
+            )
           }}
         >
           <div className="form-grid">
@@ -1091,8 +1019,7 @@ function OrderEditor({
 }
 
 function RemoveServiceButton({ itemId, service, onChanged }) {
-  const removeService = useMutation({
-    mutationFn: () => apiClient.delete(`/orders/items/${itemId}/services/${service.id}`),
+  const removeService = useRemoveOrderItemService(itemId, service.id, {
     onSuccess: onChanged,
   })
 
