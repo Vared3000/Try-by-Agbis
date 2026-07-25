@@ -4,6 +4,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue.js'
 import { useProductionItems, useProductionRoutes } from '../queries/production.js'
 import { useTransitionProductionItem } from '../mutations/production.js'
 import { scanProductionItem } from '../services/production.js'
+import styles from './ProductionPage.module.css'
 import { apiError } from './workspace-utils.js'
 
 export function ProductionPage() {
@@ -56,7 +57,7 @@ export function ProductionPage() {
 
   return (
     <div className="stack">
-      <section className="panel scanner-panel">
+      <section className={`panel ${styles.scannerPanel}`}>
         <p className="eyebrow">Производство</p>
         <h2>Сканирование бирки</h2>
         <form
@@ -78,7 +79,7 @@ export function ProductionPage() {
         {error && <p className="form-error">{error}</p>}
       </section>
 
-      <div className="production-workspace">
+      <div className={styles.productionWorkspace}>
         <section className="panel production-queue">
           <div className="panel-title">
             <div>
@@ -87,7 +88,7 @@ export function ProductionPage() {
             </div>
             <span>{queue.data?.meta?.total ?? 0} позиций</span>
           </div>
-          <div className="production-filters">
+          <div className={styles.productionFilters}>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -111,7 +112,7 @@ export function ProductionPage() {
           ) : !queue.data?.data?.length ? (
             <div className="empty-state compact">В выбранном разделе изделий нет</div>
           ) : (
-            <div className="production-queue-list">
+            <div className={styles.productionQueueList}>
               {queue.data.data.map((row) => (
                 <button
                   key={row.id}
@@ -133,7 +134,7 @@ export function ProductionPage() {
                     </span>
                     <small>{row.scanCode}</small>
                   </div>
-                  <div className="queue-status">
+                  <div className={styles.queueStatus}>
                     <span className={`status-pill status-${row.status}`}>
                       {statusLabel(row.status)}
                     </span>
@@ -150,14 +151,14 @@ export function ProductionPage() {
         </section>
 
         {item ? (
-          <section className="panel production-card">
-            <div className="order-summary">
+          <section className={`panel ${styles.productionCard}`}>
+            <div className={styles.productionSummary}>
               <div>
                 <span className="status-pill">{statusLabel(item.status)}</span>
                 <h2>{item.description || item.nomenclature?.name || 'Изделие'}</h2>
                 <p>Заказ {item.order?.displayNumber}</p>
               </div>
-              <details className="technical-details">
+              <details className={styles.technicalDetails}>
                 <summary>Код бирки</summary>
                 <code>{item.scanCode}</code>
               </details>
@@ -168,7 +169,7 @@ export function ProductionPage() {
               </p>
             ) : (
               <>
-                <div className="production-route">
+                <div className={styles.productionRoute}>
                   {route.stages.map((routeStage, index) => {
                     const history = [...histories]
                       .reverse()
@@ -192,7 +193,7 @@ export function ProductionPage() {
                     )
                   })}
                 </div>
-                <div className="production-actions">
+                <div className={styles.productionActions}>
                   {latest?.status === 'in_progress' ? (
                     <>
                       <button
@@ -231,7 +232,7 @@ export function ProductionPage() {
             )}
           </section>
         ) : (
-          <section className="panel production-placeholder">
+          <section className={`panel ${styles.productionPlaceholder}`}>
             <span>⌁</span>
             <h2>Выберите или отсканируйте изделие</h2>
             <p>

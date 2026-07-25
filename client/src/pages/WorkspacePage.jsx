@@ -112,7 +112,7 @@ export function WorkspacePage() {
             <p className="eyebrow">Рабочее пространство</p>
             <h1>{navigation.find(([id]) => id === section)?.[1]}</h1>
           </div>
-          <span className={styles.onlineBadge}>● Система работает</span>
+          <span className="online-badge">● Система работает</span>
         </header>
 
         {(section === 'overview' || section === 'reports') && (
