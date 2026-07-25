@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client.js'
+import { useCatalog } from '../queries/catalog.js'
 import {
   ChoiceChecks,
   ItemPhotos,
@@ -120,30 +121,15 @@ export function OrdersPage() {
       }))
     },
   })
-  const garments = useQuery({
-    queryKey: ['catalog', 'garment-types'],
-    queryFn: async () => (await apiClient.get('/catalog/garment-types')).data.data,
-  })
+  const garments = useCatalog('garment-types')
   const nomenclature = useQuery({
     queryKey: ['nomenclature'],
     queryFn: async () => (await apiClient.get('/nomenclature')).data.data,
   })
-  const materials = useQuery({
-    queryKey: ['catalog', 'materials'],
-    queryFn: async () => (await apiClient.get('/catalog/materials')).data.data,
-  })
-  const colors = useQuery({
-    queryKey: ['catalog', 'colors'],
-    queryFn: async () => (await apiClient.get('/catalog/colors')).data.data,
-  })
-  const defects = useQuery({
-    queryKey: ['catalog', 'defects'],
-    queryFn: async () => (await apiClient.get('/catalog/defects')).data.data,
-  })
-  const contaminations = useQuery({
-    queryKey: ['catalog', 'contaminations'],
-    queryFn: async () => (await apiClient.get('/catalog/contaminations')).data.data,
-  })
+  const materials = useCatalog('materials')
+  const colors = useCatalog('colors')
+  const defects = useCatalog('defects')
+  const contaminations = useCatalog('contaminations')
   const priceLists = useQuery({
     queryKey: ['price-lists'],
     queryFn: async () => (await apiClient.get('/price-lists')).data.data,

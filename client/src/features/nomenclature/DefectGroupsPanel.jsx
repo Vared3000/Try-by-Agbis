@@ -3,6 +3,8 @@ import { useState } from 'react'
 
 import { apiClient } from '../../api/client.js'
 import { apiError } from '../../pages/workspace-utils.js'
+import { useCatalog } from '../../queries/catalog.js'
+import { useCreateCatalogEntry } from '../../mutations/catalog.js'
 
 const emptyForm = { name: '', defectIds: [] }
 
@@ -16,10 +18,7 @@ export function DefectGroupsPanel({ onHide }) {
     queryKey: ['defect-groups'],
     queryFn: async () => (await apiClient.get('/defect-groups')).data.data,
   })
-  const defects = useQuery({
-    queryKey: ['catalog', 'defects'],
-    queryFn: async () => (await apiClient.get('/catalog/defects')).data.data,
-  })
+  const defects = useCatalog('defects')
   const save = useMutation({
     mutationFn: () =>
       apiClient[editingId ? 'patch' : 'post'](
@@ -41,14 +40,15 @@ export function DefectGroupsPanel({ onHide }) {
       queryClient.invalidateQueries({ queryKey: ['nomenclature'] })
     },
   })
+  const createDefectEntry = useCreateCatalogEntry('defects')
   const createDefect = useMutation({
-    mutationFn: async ({ addToGroup }) => {
-      const response = await apiClient.post('/catalog/defects', {
-        code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}`,
-        name: newDefectName,
-      })
-      return { defect: response.data.data, addToGroup }
-    },
+    mutationFn: ({ addToGroup }) =>
+      createDefectEntry
+        .mutateAsync({
+          code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}`,
+          name: newDefectName,
+        })
+        .then((defect) => ({ defect, addToGroup })),
     onSuccess: ({ defect, addToGroup }) => {
       setNewDefectName('')
       if (addToGroup) {
@@ -57,7 +57,6 @@ export function DefectGroupsPanel({ onHide }) {
           defectIds: [...new Set([...value.defectIds, defect.id])],
         }))
       }
-      queryClient.invalidateQueries({ queryKey: ['catalog', 'defects'] })
     },
   })
 

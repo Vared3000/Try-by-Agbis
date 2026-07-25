@@ -1,7 +1,11 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueries } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { apiClient } from '../api/client.js'
+import { catalogKey } from '../queries/catalog.js'
+import { useServices } from '../queries/services.js'
+import { listCatalog } from '../services/catalog.js'
+import { useArchiveCatalogEntry, useSaveCatalogEntry } from '../mutations/catalog.js'
+import { useArchiveService, useSaveService } from '../mutations/services.js'
 import { apiError } from './workspace-utils.js'
 
 const catalogs = [
@@ -14,7 +18,6 @@ const catalogs = [
 const emptyService = { code: '', name: '', unit: 'item', categoryId: '' }
 
 export function CatalogPage() {
-  const queryClient = useQueryClient()
   const [active, setActive] = useState('materials')
   const [entry, setEntry] = useState({ name: '' })
   const [editingEntryId, setEditingEntryId] = useState('')
@@ -22,70 +25,20 @@ export function CatalogPage() {
   const [editingServiceId, setEditingServiceId] = useState('')
   const catalogQueries = useQueries({
     queries: catalogs.map(([path]) => ({
-      queryKey: ['catalog', path],
-      queryFn: async () => (await apiClient.get(`/catalog/${path}`)).data.data,
+      queryKey: catalogKey(path),
+      queryFn: () => listCatalog(path),
     })),
   })
-  const services = useQuery({
-    queryKey: ['services'],
-    queryFn: async () => (await apiClient.get('/services')).data.data,
-  })
+  const services = useServices()
   const selectTab = (path) => {
     setActive(path)
     setEditingEntryId('')
     setEntry({ name: '' })
   }
-  const saveEntry = useMutation({
-    mutationFn: () =>
-      editingEntryId
-        ? apiClient.patch(`/catalog/${active}/${editingEntryId}`, { name: entry.name })
-        : apiClient.post(`/catalog/${active}`, {
-            code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}`,
-            name: entry.name,
-          }),
-    onSuccess: () => {
-      setEntry({ name: '' })
-      setEditingEntryId('')
-      queryClient.invalidateQueries({ queryKey: ['catalog', active] })
-    },
-  })
-  const archiveEntry = useMutation({
-    mutationFn: (id) => apiClient.delete(`/catalog/${active}/${id}`),
-    onSuccess: (_, id) => {
-      if (editingEntryId === id) {
-        setEditingEntryId('')
-        setEntry({ name: '' })
-      }
-      queryClient.invalidateQueries({ queryKey: ['catalog', active] })
-    },
-  })
-  const saveService = useMutation({
-    mutationFn: () =>
-      editingServiceId
-        ? apiClient.patch(`/services/${editingServiceId}`, {
-            ...service,
-            categoryId: service.categoryId || null,
-          })
-        : apiClient.post('/services', {
-            ...service,
-            categoryId: service.categoryId || null,
-          }),
-    onSuccess: () => {
-      setService(emptyService)
-      setEditingServiceId('')
-      queryClient.invalidateQueries({ queryKey: ['services'] })
-    },
-  })
-  const archiveService = useMutation({
-    mutationFn: (id) => apiClient.delete(`/services/${id}`),
-    onSuccess: (_, id) => {
-      if (editingServiceId === id) {
-        setEditingServiceId('')
-        setService(emptyService)
-      }
-      queryClient.invalidateQueries({ queryKey: ['services'] })
-    },
-  })
+  const saveEntry = useSaveCatalogEntry(active)
+  const archiveEntry = useArchiveCatalogEntry(active)
+  const saveService = useSaveService()
+  const archiveService = useArchiveService()
   const activeIndex = catalogs.findIndex(([path]) => path === active)
   const activeRows = catalogQueries[activeIndex]?.data ?? []
   const categories =
@@ -135,7 +88,23 @@ export function CatalogPage() {
           className="inline-form catalog-entry-form"
           onSubmit={(event) => {
             event.preventDefault()
-            saveEntry.mutate()
+            saveEntry.mutate(
+              {
+                id: editingEntryId,
+                payload: editingEntryId
+                  ? { name: entry.name }
+                  : {
+                      code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}`,
+                      name: entry.name,
+                    },
+              },
+              {
+                onSuccess: () => {
+                  setEntry({ name: '' })
+                  setEditingEntryId('')
+                },
+              },
+            )
           }}
         >
           <input
@@ -178,7 +147,16 @@ export function CatalogPage() {
                 className="chip-remove"
                 aria-label={`В архив: ${row.name}`}
                 disabled={archiveEntry.isPending}
-                onClick={() => archiveEntry.mutate(row.id)}
+                onClick={() =>
+                  archiveEntry.mutate(row.id, {
+                    onSuccess: () => {
+                      if (editingEntryId === row.id) {
+                        setEditingEntryId('')
+                        setEntry({ name: '' })
+                      }
+                    },
+                  })
+                }
               >
                 ×
               </button>
@@ -199,7 +177,21 @@ export function CatalogPage() {
           className="inline-form service-form"
           onSubmit={(event) => {
             event.preventDefault()
-            saveService.mutate()
+            saveService.mutate(
+              {
+                id: editingServiceId,
+                payload: {
+                  ...service,
+                  categoryId: service.categoryId || null,
+                },
+              },
+              {
+                onSuccess: () => {
+                  setService(emptyService)
+                  setEditingServiceId('')
+                },
+              },
+            )
           }}
         >
           <input
@@ -267,7 +259,16 @@ export function CatalogPage() {
                   type="button"
                   className="text-button danger"
                   disabled={archiveService.isPending}
-                  onClick={() => archiveService.mutate(row.id)}
+                  onClick={() =>
+                    archiveService.mutate(row.id, {
+                      onSuccess: () => {
+                        if (editingServiceId === row.id) {
+                          setEditingServiceId('')
+                          setService(emptyService)
+                        }
+                      },
+                    })
+                  }
                 >
                   В архив
                 </button>

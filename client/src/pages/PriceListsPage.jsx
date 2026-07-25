@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { apiClient } from '../api/client.js'
+import { useServices } from '../queries/services.js'
 import { NomenclatureCombobox } from '../features/orders/NomenclatureCombobox.jsx'
 import { ServiceCombobox } from '../features/orders/ServiceCombobox.jsx'
 import { apiError, money } from './workspace-utils.js'
@@ -49,10 +50,7 @@ export function PriceListsPage() {
     queryKey: ['nomenclature'],
     queryFn: async () => (await apiClient.get('/nomenclature')).data.data,
   })
-  const services = useQuery({
-    queryKey: ['services'],
-    queryFn: async () => (await apiClient.get('/services')).data.data,
-  })
+  const services = useServices()
   const existingNomenclatureIds = new Set(
     (detail.data?.items ?? []).map((row) => row.nomenclatureItemId).filter(Boolean),
   )
