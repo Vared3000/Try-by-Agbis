@@ -160,7 +160,7 @@ export function ProductionPage() {
                     </span>
                     {row.order?.dueAt && (
                       <small className={isOverdue(row.order.dueAt) ? 'overdue' : ''}>
-                        Срок {new Date(row.order.dueAt).toLocaleString('ru-RU')}
+                        Срок {new Date(row.order.dueAt).toLocaleDateString('ru-RU')}
                       </small>
                     )}
                   </div>

@@ -75,7 +75,7 @@ export function OrderListPanel({
               </span>
               <span className={`order-due ${order.isOverdue ? 'overdue' : ''}`}>
                 {order.dueAt
-                  ? new Date(order.dueAt).toLocaleString('ru-RU')
+                  ? new Date(order.dueAt).toLocaleDateString('ru-RU')
                   : 'Не указан'}
                 {order.isOverdue && <small>Просрочен</small>}
               </span>

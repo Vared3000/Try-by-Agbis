@@ -546,7 +546,7 @@ function OrderEditor({
               }
               value={
                 order.dueAt
-                  ? `${new Date(order.dueAt).toLocaleString('ru-RU')} · ${
+                  ? `${new Date(order.dueAt).toLocaleDateString('ru-RU')} · ${
                       order.issueLocation?.name || 'Точка не указана'
                     }`
                   : `Срок не назначен · ${

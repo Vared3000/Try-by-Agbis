@@ -19,7 +19,7 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
     issueLocationId:
       order.issueLocationId || order.acceptanceLocationId || issueLocations[0]?.id || '',
     priceListId: order.priceListId || priceLists[0]?.id || '',
-    dueAt: order.dueAt ? new Date(order.dueAt).toLocaleString('sv-SE').slice(0, 16) : '',
+    dueAt: order.dueAt ? new Date(order.dueAt).toLocaleDateString('sv-SE') : '',
     urgency: order.urgency || 'normal',
     notificationPhone: order.notificationPhone || order.client?.phone || '',
     isRework: Boolean(order.isRework),
@@ -59,7 +59,9 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
                   clientId: form.clientId,
                   issueLocationId: form.issueLocationId,
                   priceListId: form.priceListId || null,
-                  dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : null,
+                  dueAt: form.dueAt
+                    ? new Date(`${form.dueAt}T18:00:00`).toISOString()
+                    : null,
                   urgency: form.urgency,
                   notificationPhone: form.notificationPhone || null,
                   isRework: form.isRework,
@@ -129,7 +131,7 @@ export function OrderMetaEditor({ branches, order, priceLists, updateOrder, onCl
               <label>
                 Срок готовности
                 <input
-                  type="datetime-local"
+                  type="date"
                   value={form.dueAt}
                   onChange={(event) =>
                     setForm((value) => ({ ...value, dueAt: event.target.value }))
