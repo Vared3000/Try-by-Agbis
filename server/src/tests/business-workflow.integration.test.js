@@ -23,6 +23,7 @@ integration('core business workflow API with PostgreSQL (auth, clients, catalog,
     otherOrganization: randomUUID(),
     branch: randomUUID(),
     location: randomUUID(),
+    transferToLocation: randomUUID(),
     workplace: randomUUID(),
     otherBranch: randomUUID(),
     user: randomUUID(),
@@ -87,6 +88,14 @@ integration('core business workflow API with PostgreSQL (auth, clients, catalog,
       code: `RECEPTION-${suffix}`,
       name: 'Test reception',
       type: 'acceptance',
+    })
+    await models.Location.create({
+      id: ids.transferToLocation,
+      organizationId: ids.organization,
+      branchId: ids.branch,
+      code: `WORKSHOP-${suffix}`,
+      name: 'Test workshop',
+      type: 'production',
     })
     await models.Workplace.create({
       id: ids.workplace,
@@ -231,6 +240,18 @@ integration('core business workflow API with PostgreSQL (auth, clients, catalog,
     if (!sequelize) return
     const models = sequelize.models
     await models.RefreshSession.destroy({ where: { userId: ids.user }, force: true })
+    await models.ItemMovement.destroy({
+      where: { organizationId: ids.organization },
+      force: true,
+    })
+    await models.TransferDocumentItem.destroy({
+      where: { organizationId: ids.organization },
+      force: true,
+    })
+    await models.TransferDocument.destroy({
+      where: { organizationId: ids.organization },
+      force: true,
+    })
     await models.ItemStageHistory.destroy({
       where: { organizationId: ids.organization },
       force: true,
@@ -380,7 +401,10 @@ integration('core business workflow API with PostgreSQL (auth, clients, catalog,
     await models.Role.destroy({ where: { id: ids.role }, force: true })
     await models.User.destroy({ where: { id: ids.user }, force: true })
     await models.Workplace.destroy({ where: { id: ids.workplace }, force: true })
-    await models.Location.destroy({ where: { id: ids.location }, force: true })
+    await models.Location.destroy({
+      where: { id: [ids.location, ids.transferToLocation] },
+      force: true,
+    })
     await models.Branch.destroy({
       where: { id: [ids.branch, ids.otherBranch] },
       force: true,
@@ -1295,5 +1319,165 @@ integration('core business workflow API with PostgreSQL (auth, clients, catalog,
 
     const issuedOrder = await sequelize.models.Order.findByPk(order.body.data.id)
     expect(issuedOrder.status).toBe('issued')
+  })
+
+  it('moves an item between locations through a transfer document', async () => {
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(200)
+    const authorization = `Bearer ${login.body.data.accessToken}`
+    const client = await sequelize.models.Client.findOne({
+      where: { organizationId: ids.organization },
+    })
+    const garment = await sequelize.models.GarmentType.findOne({
+      where: { organizationId: ids.organization },
+    })
+    const service = await sequelize.models.Service.findOne({
+      where: { organizationId: ids.organization },
+    })
+
+    const order = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', authorization)
+      .send({
+        branchId: ids.branch,
+        acceptanceLocationId: ids.location,
+        clientId: client.id,
+      })
+      .expect(201)
+    const item = await request(app)
+      .post(`/api/v1/orders/${order.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({
+        garmentTypeId: garment.id,
+        routeId: ids.productionRoute,
+        description: 'Transfer test garment',
+      })
+      .expect(201)
+    await request(app)
+      .post(`/api/v1/orders/items/${item.body.data.id}/services`)
+      .set('Authorization', authorization)
+      .send({ serviceId: service.id, quantity: '1.000' })
+      .expect(201)
+    await request(app)
+      .post(`/api/v1/orders/${order.body.data.id}/accept`)
+      .set('Authorization', authorization)
+      .set('Idempotency-Key', `accept-transfer-${suffix}`)
+      .expect(200)
+
+    await request(app)
+      .post('/api/v1/transfers')
+      .set('Authorization', authorization)
+      .send({ fromLocationId: ids.location, toLocationId: ids.location })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('VALIDATION_ERROR')
+      })
+
+    const transfer = await request(app)
+      .post('/api/v1/transfers')
+      .set('Authorization', authorization)
+      .send({
+        fromLocationId: ids.location,
+        toLocationId: ids.transferToLocation,
+        notes: 'Integration transfer',
+      })
+      .expect(201)
+    expect(transfer.body.data.status).toBe('draft')
+
+    await request(app)
+      .post(`/api/v1/transfers/${transfer.body.data.id}/send`)
+      .set('Authorization', authorization)
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('TRANSFER_EMPTY')
+      })
+
+    await request(app)
+      .post(`/api/v1/transfers/${transfer.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({ scanCode: item.body.data.scanCode })
+      .expect(201)
+
+    await request(app)
+      .post(`/api/v1/transfers/${transfer.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({ scanCode: item.body.data.scanCode })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('TRANSFER_ITEM_DUPLICATE')
+      })
+
+    const sent = await request(app)
+      .post(`/api/v1/transfers/${transfer.body.data.id}/send`)
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(sent.body.data.status).toBe('in_transit')
+
+    const staleTransfer = await request(app)
+      .post('/api/v1/transfers')
+      .set('Authorization', authorization)
+      .send({ fromLocationId: ids.location, toLocationId: ids.transferToLocation })
+      .expect(201)
+    await request(app)
+      .post(`/api/v1/transfers/${staleTransfer.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({ scanCode: item.body.data.scanCode })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('TRANSFER_ITEM_IN_TRANSIT')
+      })
+
+    const received = await request(app)
+      .post(`/api/v1/transfers/${transfer.body.data.id}/receive`)
+      .set('Authorization', authorization)
+      .send({})
+      .expect(200)
+    expect(received.body.data.status).toBe('received')
+    expect(received.body.data.items[0].status).toBe('received')
+
+    const wrongLocationTransfer = await request(app)
+      .post('/api/v1/transfers')
+      .set('Authorization', authorization)
+      .send({ fromLocationId: ids.location, toLocationId: ids.transferToLocation })
+      .expect(201)
+    await request(app)
+      .post(`/api/v1/transfers/${wrongLocationTransfer.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({ scanCode: item.body.data.scanCode })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('TRANSFER_ITEM_WRONG_LOCATION')
+      })
+
+    const returnTransfer = await request(app)
+      .post('/api/v1/transfers')
+      .set('Authorization', authorization)
+      .send({ fromLocationId: ids.transferToLocation, toLocationId: ids.location })
+      .expect(201)
+    const returnItem = await request(app)
+      .post(`/api/v1/transfers/${returnTransfer.body.data.id}/items`)
+      .set('Authorization', authorization)
+      .send({ scanCode: item.body.data.scanCode })
+      .expect(201)
+    const documentItemId = returnItem.body.data.items[0].id
+
+    await request(app)
+      .delete(`/api/v1/transfers/${returnTransfer.body.data.id}/items/${documentItemId}`)
+      .set('Authorization', authorization)
+      .expect(204)
+
+    const emptiedReturnTransfer = await request(app)
+      .get(`/api/v1/transfers/${returnTransfer.body.data.id}`)
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(emptiedReturnTransfer.body.data.items).toHaveLength(0)
+
+    const list = await request(app)
+      .get('/api/v1/transfers?status=received')
+      .set('Authorization', authorization)
+      .expect(200)
+    expect(list.body.data.map(({ id }) => id)).toContain(transfer.body.data.id)
   })
 })
