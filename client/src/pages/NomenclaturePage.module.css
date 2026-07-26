@@ -1,0 +1,68 @@
+.responsiveTable {
+  display: grid;
+}
+.tableRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.5fr) 0.55fr 0.8fr 0.75fr 0.55fr auto;
+  gap: 1rem;
+  align-items: center;
+  min-height: 58px;
+  padding: 0.7rem 0.4rem;
+  border-top: 1px solid #edf1ee;
+  font-size: 0.85rem;
+}
+.tableHead {
+  min-height: auto;
+  color: #7b8b82;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.nomenclatureDefectGroup {
+  display: block;
+  margin-top: 0.25rem;
+  color: #718279;
+  font-weight: 600;
+}
+.dynamicFields {
+  border: 1px solid #dfe7e2;
+  border-radius: 14px;
+  padding: 1rem;
+  margin: 0;
+}
+.dynamicFields legend {
+  padding: 0 0.45rem;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+.dynamicFields > small {
+  display: block;
+  margin-top: 0.75rem;
+  color: #74847b;
+}
+.calculationPreview {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.55rem 1rem;
+  background: #eff7f2;
+  border-radius: 14px;
+  padding: 1rem;
+}
+.calculationPreview span {
+  color: #63766b;
+  font-size: 0.8rem;
+}
+.previewTotal {
+  color: #1e5a45;
+  font-size: 1.25rem;
+}
+
+@media (max-width: 850px) {
+  .tableRow {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tableHead {
+    display: none;
+  }
+}

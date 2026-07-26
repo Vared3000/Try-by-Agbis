@@ -9,6 +9,7 @@ import { useCreateCatalogEntry } from '../../mutations/catalog.js'
 import { useDefectGroups } from '../../queries/defect-groups.js'
 import { useArchiveDefectGroup, useSaveDefectGroup } from '../../mutations/defect-groups.js'
 import { defectGroupSchema } from '../../schemas/defect-groups.js'
+import styles from './DefectGroupsPanel.module.css'
 
 const emptyForm = { name: '', defectIds: [] }
 
@@ -91,13 +92,13 @@ export function DefectGroupsPanel({ onHide }) {
             )}
           </div>
         </div>
-        <div className="defect-directory-card">
+        <div className={styles.defectDirectoryCard}>
           <div>
             <strong>Справочник дефектов</strong>
             <p>Добавьте формулировку, которую приёмщик увидит внутри заказа.</p>
           </div>
           <form
-            className="defect-create-row"
+            className={styles.defectCreateRow}
             onSubmit={(event) => {
               event.preventDefault()
               submitNewDefect(false)
@@ -121,7 +122,7 @@ export function DefectGroupsPanel({ onHide }) {
               {createDefect.isPending ? 'Добавляем…' : '+ Добавить дефект'}
             </button>
           </form>
-          <div className="defect-directory-list">
+          <div className={styles.defectDirectoryList}>
             {(defects.data ?? []).map((defect) => (
               <span key={defect.id}>{defect.name}</span>
             ))}
@@ -130,9 +131,9 @@ export function DefectGroupsPanel({ onHide }) {
             <p className="form-error">{apiError(createDefect.error)}</p>
           )}
         </div>
-        <div className="defect-group-grid">
+        <div className={styles.defectGroupGrid}>
           {(groups.data ?? []).map((group) => (
-            <article className="defect-group-card" key={group.id}>
+            <article className={styles.defectGroupCard} key={group.id}>
               <div>
                 <strong>{group.name}</strong>
                 <p>
@@ -215,7 +216,7 @@ export function DefectGroupsPanel({ onHide }) {
                   <small className="field-error">{errors.name.message}</small>
                 )}
               </label>
-              <div className="defect-create-inline">
+              <div className={styles.defectCreateInline}>
                 <label>
                   Добавить новый дефект в эту группу
                   <input

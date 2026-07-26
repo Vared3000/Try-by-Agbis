@@ -1,0 +1,74 @@
+.defectGroupGrid {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+.defectDirectoryCard {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  border: 1px solid #dce6e0;
+  border-radius: 16px;
+  background: #f5f8f6;
+  padding: 1rem;
+}
+.defectDirectoryCard p {
+  margin: 0.25rem 0 0;
+  color: #718279;
+  font-size: 0.82rem;
+}
+.defectCreateRow,
+.defectCreateInline {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+}
+.defectCreateRow label,
+.defectCreateInline label {
+  margin: 0;
+}
+.defectDirectoryList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.defectDirectoryList span {
+  border: 1px solid #dbe5df;
+  border-radius: 999px;
+  background: white;
+  padding: 0.38rem 0.65rem;
+  color: #52685d;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.defectCreateInline {
+  border: 1px solid #e0e8e3;
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+.defectGroupCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #e0e8e3;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+}
+.defectGroupCard p {
+  margin: 0.25rem 0 0;
+  color: #718279;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 850px) {
+  .defectCreateRow,
+  .defectCreateInline {
+    grid-template-columns: 1fr;
+  }
+  .defectGroupCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

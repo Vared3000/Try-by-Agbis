@@ -9,6 +9,7 @@ import { useNomenclature } from '../queries/nomenclature.js'
 import { useArchiveNomenclatureItem, useSaveNomenclatureItem } from '../mutations/nomenclature.js'
 import { nomenclatureItemSchema } from '../schemas/nomenclature.js'
 import { apiError, money } from './workspace-utils.js'
+import styles from './NomenclaturePage.module.css'
 
 const units = [
   ['piece', 'шт.'],
@@ -136,8 +137,8 @@ export function NomenclaturePage() {
           />
           <span>{list.data?.length ?? 0} позиций</span>
         </div>
-        <div className="responsive-table">
-          <div className="table-row table-head">
+        <div className={styles.responsiveTable}>
+          <div className={`${styles.tableRow} ${styles.tableHead}`}>
             <span>Имя позиции</span>
             <span>Единица</span>
             <span>Цена за единицу</span>
@@ -146,10 +147,10 @@ export function NomenclaturePage() {
             <span />
           </div>
           {(list.data ?? []).map((row) => (
-            <div className="table-row" id={`nomenclature-${row.id}`} key={row.id}>
+            <div className={styles.tableRow} id={`nomenclature-${row.id}`} key={row.id}>
               <span>
                 <strong>{row.name}</strong>
-                <small className="nomenclature-defect-group">
+                <small className={styles.nomenclatureDefectGroup}>
                   {row.defectGroup?.name || 'Все дефекты'}
                 </small>
               </span>
@@ -281,7 +282,7 @@ export function NomenclaturePage() {
               </label>
 
               {form.unit === 'square_meter' && (
-                <fieldset className="dynamic-fields">
+                <fieldset className={styles.dynamicFields}>
                   <legend>Предварительный расчёт площади</legend>
                   <div className="form-grid">
                     <label>
@@ -331,7 +332,7 @@ export function NomenclaturePage() {
               </label>
 
               {preview && (
-                <div className="calculation-preview">
+                <div className={styles.calculationPreview}>
                   <span>Площадь</span>
                   <strong>{preview.area.toLocaleString('ru-RU')} м²</strong>
                   <span>Расчёт</span>
@@ -340,7 +341,7 @@ export function NomenclaturePage() {
                     {numberValue(form.price).toLocaleString('ru-RU')} ₽
                   </strong>
                   <span>Итоговая стоимость</span>
-                  <strong className="preview-total">
+                  <strong className={styles.previewTotal}>
                     {preview.total.toLocaleString('ru-RU', {
                       style: 'currency',
                       currency: 'RUB',
