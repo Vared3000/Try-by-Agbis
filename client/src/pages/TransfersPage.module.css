@@ -1,0 +1,117 @@
+.transferWorkspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.transferSidebar,
+.transferDetail {
+  min-width: 0;
+}
+.transferCreateForm {
+  display: grid;
+  gap: 0.8rem;
+}
+.transferCreateForm label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+.transferCreateForm textarea {
+  resize: vertical;
+  min-height: 68px;
+}
+.compactTitle {
+  margin-bottom: 0.4rem;
+}
+.transferList {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.4rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid #e1e9e4;
+}
+.transferList > button {
+  border: 1px solid #dce5df;
+  border-radius: 13px;
+  background: white;
+  padding: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+}
+.transferList > button:global(.active) {
+  border-color: #2b785b;
+  background: #eff8f3;
+  box-shadow: 0 0 0 2px #2b785b12;
+}
+.transferList > button div {
+  display: grid;
+  gap: 0.2rem;
+}
+.transferList > button div:last-child {
+  justify-items: end;
+}
+.transferList span,
+.transferList small {
+  color: #65796e;
+  font-size: 0.75rem;
+}
+.transferHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.transferHead h2,
+.transferHead p {
+  margin: 0.25rem 0 0;
+}
+.transferScan {
+  padding: 1rem;
+  border-radius: 14px;
+  background: #f2f7f4;
+  margin-bottom: 1rem;
+}
+.transferItems {
+  display: grid;
+  gap: 0.6rem;
+}
+.transferItems article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid #e4eae6;
+}
+.transferItems article > div {
+  display: grid;
+  gap: 0.2rem;
+}
+.transferItems article span,
+.transferItems article small {
+  color: #65796e;
+  font-size: 0.78rem;
+}
+.transferActions {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: #eff7f2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+.transferActions p {
+  margin: 0 auto 0 0;
+  color: #536b60;
+}
+.successNote {
+  color: #176545 !important;
+  font-weight: 800;
+}

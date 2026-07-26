@@ -5,6 +5,7 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue.js'
 import { useOrder } from '../../queries/orders.js'
 import { listOrders } from '../../services/orders.js'
 import { apiError, orderStatusLabel } from '../../pages/workspace-utils.js'
+import styles from './OrderItemPickerModal.module.css'
 
 const itemStatusLabels = {
   accepted: 'Принято',
@@ -92,7 +93,7 @@ export function OrderItemPickerModal({ addItem, onClose }) {
               ))}
             </div>
           ) : (
-            <div className="transfer-items">
+            <div className={styles.itemList}>
               <button
                 type="button"
                 className="text-button"

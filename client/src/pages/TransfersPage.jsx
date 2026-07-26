@@ -14,6 +14,7 @@ import {
 } from '../mutations/transfers.js'
 import { transferCreateSchema } from '../schemas/transfers.js'
 import { apiError } from './workspace-utils.js'
+import styles from './TransfersPage.module.css'
 
 const statusLabels = {
   draft: 'Черновик',
@@ -100,8 +101,8 @@ export function TransfersPage() {
   const document = detail.data
 
   return (
-    <div className="transfer-workspace">
-      <section className="panel transfer-sidebar">
+    <div className={styles.transferWorkspace}>
+      <section className={`panel ${styles.transferSidebar}`}>
         <div className="panel-title">
           <div>
             <p className="eyebrow">Новая накладная</p>
@@ -109,7 +110,7 @@ export function TransfersPage() {
           </div>
         </div>
         <form
-          className="transfer-create-form"
+          className={styles.transferCreateForm}
           onSubmit={handleTransferSubmit((values) => {
             createTransfer.mutate(
               {
@@ -195,8 +196,8 @@ export function TransfersPage() {
           </button>
         </form>
 
-        <div className="transfer-list">
-          <div className="panel-title compact-title">
+        <div className={styles.transferList}>
+          <div className={`panel-title ${styles.compactTitle}`}>
             <strong>Последние накладные</strong>
             <span>{transfers.data?.length ?? 0}</span>
           </div>
@@ -229,7 +230,7 @@ export function TransfersPage() {
         </div>
       </section>
 
-      <section className="panel transfer-detail">
+      <section className={`panel ${styles.transferDetail}`}>
         {!effectiveSelectedId ? (
           <div className="empty-state">
             <span>⇄</span>
@@ -242,7 +243,7 @@ export function TransfersPage() {
           <p className="form-error">{apiError(detail.error)}</p>
         ) : (
           <>
-            <div className="transfer-head">
+            <div className={styles.transferHead}>
               <div>
                 <p className="eyebrow">Накладная перемещения</p>
                 <h2>{document.displayNumber}</h2>
@@ -257,7 +258,7 @@ export function TransfersPage() {
 
             {document.status === 'draft' && (
               <form
-                className="scan-form transfer-scan"
+                className={`scan-form ${styles.transferScan}`}
                 onSubmit={(event) => {
                   event.preventDefault()
                   if (scanCode.trim()) addItem.mutate(scanCode.trim())
@@ -286,8 +287,8 @@ export function TransfersPage() {
               </form>
             )}
 
-            <div className="transfer-items">
-              <div className="panel-title compact-title">
+            <div className={styles.transferItems}>
+              <div className={`panel-title ${styles.compactTitle}`}>
                 <strong>Изделия</strong>
                 <span>{document.items.length}</span>
               </div>
@@ -346,7 +347,7 @@ export function TransfersPage() {
             </div>
 
             {error && <p className="form-error">{apiError(error)}</p>}
-            <div className="transfer-actions">
+            <div className={styles.transferActions}>
               {document.status === 'draft' && (
                 <button
                   className="primary-button"
@@ -372,7 +373,7 @@ export function TransfersPage() {
                 </>
               )}
               {document.status === 'received' && (
-                <p className="success-note">
+                <p className={styles.successNote}>
                   Перемещение завершено. Принято{' '}
                   {document.items.filter((item) => item.status === 'received').length},
                   расхождений{' '}
