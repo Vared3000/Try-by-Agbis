@@ -349,12 +349,6 @@ textarea:focus {
   gap: 0.65rem;
   margin: 1rem 0;
 }
-.service-form {
-  grid-template-columns: 0.7fr 1.2fr 1fr auto;
-}
-.catalog-entry-form {
-  grid-template-columns: minmax(220px, 1fr) auto;
-}
 .price-form {
   grid-template-columns: minmax(180px, 1fr) auto;
   align-items: end;
@@ -406,74 +400,6 @@ textarea:focus {
 }
 .item-form .form-error {
   grid-column: 1 / -1;
-}
-.tab-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-.tab-row button {
-  border: 1px solid #dbe4df;
-  background: #f8faf8;
-  color: #52665c;
-  border-radius: 999px;
-  padding: 0.5rem 0.8rem;
-}
-.tab-row button.active {
-  background: #1e5a45;
-  border-color: #1e5a45;
-  color: white;
-}
-.chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: 1rem;
-}
-.chip-list > span {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
-  border: 1px solid #e1e8e4;
-  border-radius: 10px;
-  background: #f7f9f7;
-  font-size: 0.82rem;
-}
-.chip-list > span.active {
-  border-color: #1e5a45;
-  background: #eaf3ee;
-}
-.chip-list code {
-  color: #527064;
-  margin-right: 0.3rem;
-}
-.chip-list .link-button {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-.chip-list .link-button:hover {
-  text-decoration: underline;
-}
-.chip-remove {
-  border: 0;
-  background: none;
-  padding: 0;
-  width: 1.15rem;
-  height: 1.15rem;
-  line-height: 1;
-  border-radius: 999px;
-  color: #8a988f;
-  cursor: pointer;
-  font-size: 0.95rem;
-}
-.chip-remove:hover {
-  background: #e1e8e4;
-  color: #17231d;
 }
 .choice-list {
   display: grid;
@@ -889,7 +815,6 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
   .inline-form,
-  .service-form,
   .price-form,
   .item-form {
     grid-template-columns: 1fr;

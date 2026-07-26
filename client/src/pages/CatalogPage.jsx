@@ -10,6 +10,7 @@ import { useArchiveCatalogEntry, useSaveCatalogEntry } from '../mutations/catalo
 import { useArchiveService, useSaveService } from '../mutations/services.js'
 import { catalogEntrySchema, serviceSchema } from '../schemas/catalog.js'
 import { apiError } from './workspace-utils.js'
+import styles from './CatalogPage.module.css'
 
 const catalogs = [
   ['materials', 'Материалы'],
@@ -130,7 +131,7 @@ export function CatalogPage() {
             </p>
           </div>
         </div>
-        <div className="tab-row">
+        <div className={styles.tabRow}>
           {catalogs.map(([path, label]) => (
             <button
               key={path}
@@ -141,7 +142,7 @@ export function CatalogPage() {
             </button>
           ))}
         </div>
-        <form className="inline-form catalog-entry-form" onSubmit={submitEntry}>
+        <form className={`inline-form ${styles.catalogEntryForm}`} onSubmit={submitEntry}>
           <input {...registerEntry('name')} placeholder="Название" />
           <button className="primary-button" disabled={saveEntry.isPending}>
             {editingEntryId ? 'Сохранить' : 'Добавить'}
@@ -161,7 +162,7 @@ export function CatalogPage() {
         </form>
         {entryErrors.name && <p className="form-error">{entryErrors.name.message}</p>}
         {saveEntry.error && <p className="form-error">{apiError(saveEntry.error)}</p>}
-        <div className="chip-list">
+        <div className={styles.chipList}>
           {activeRows.map((row) => (
             <span key={row.id} className={editingEntryId === row.id ? 'active' : ''}>
               <button
@@ -173,7 +174,7 @@ export function CatalogPage() {
               </button>
               <button
                 type="button"
-                className="chip-remove"
+                className={styles.chipRemove}
                 aria-label={`В архив: ${row.name}`}
                 disabled={archiveEntry.isPending}
                 onClick={() =>
@@ -202,7 +203,7 @@ export function CatalogPage() {
           </div>
           <span>{services.data?.length ?? 0} позиций</span>
         </div>
-        <form className="inline-form service-form" onSubmit={submitService}>
+        <form className={`inline-form ${styles.serviceForm}`} onSubmit={submitService}>
           <input {...registerService('code')} placeholder="Код услуги" />
           <input {...registerService('name')} placeholder="Название услуги" />
           <select {...registerService('categoryId')}>
