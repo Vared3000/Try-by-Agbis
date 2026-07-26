@@ -21,6 +21,7 @@ import {
   priceListItemSchema,
 } from '../schemas/price-lists.js'
 import { apiError, money } from './workspace-utils.js'
+import styles from './PriceListsPage.module.css'
 
 const unitLabels = {
   item: 'шт.',
@@ -158,7 +159,7 @@ export function PriceListsPage() {
   })
 
   return (
-    <div className="workspace-grid price-layout">
+    <div className={styles.priceLayout}>
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -251,7 +252,7 @@ export function PriceListsPage() {
             <p className="eyebrow">Цены</p>
             <h2>{detail.data?.name || 'Выберите прайс-лист'}</h2>
           </div>
-          <div className="price-list-actions">
+          <div className={styles.priceListActions}>
             <span>{detail.data?.items?.length ?? 0} позиций</span>
             {detail.data?.status === 'draft' && (
               <button
@@ -283,9 +284,9 @@ export function PriceListsPage() {
           </div>
         </div>
         {effectiveId && editable && (
-          <form className="inline-form price-form" onSubmit={submitItem}>
+          <form className={`inline-form ${styles.priceForm}`} onSubmit={submitItem}>
             <div
-              className="price-kind-switch field-wide"
+              className={`${styles.priceKindSwitch} field-wide`}
               role="group"
               aria-label="Тип цены"
             >
@@ -418,7 +419,7 @@ export function PriceListsPage() {
                 </span>
               </div>
               {editingPriceId === row.id ? (
-                <form className="price-row-editor" onSubmit={submitEditPrice}>
+                <form className={styles.priceRowEditor} onSubmit={submitEditPrice}>
                   <input
                     autoFocus
                     type="number"
@@ -444,7 +445,7 @@ export function PriceListsPage() {
                   </button>
                 </form>
               ) : (
-                <div className="price-row-actions">
+                <div className={styles.priceRowActions}>
                   <strong>{money(row.price)}</strong>
                   {editable && (
                     <>

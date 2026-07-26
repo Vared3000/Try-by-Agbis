@@ -1,0 +1,56 @@
+.priceLayout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.65fr) minmax(480px, 1.35fr);
+  gap: 1rem;
+  align-items: start;
+}
+.priceForm {
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: end;
+}
+.priceKindSwitch {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.2rem;
+  border: 1px solid #dbe4df;
+  border-radius: 12px;
+  background: #f4f7f5;
+}
+.priceKindSwitch button {
+  border: 0;
+  border-radius: 9px;
+  padding: 0.55rem 0.8rem;
+  background: transparent;
+  color: #64766d;
+  font-weight: 750;
+}
+.priceKindSwitch button:global(.active) {
+  background: #ffffff;
+  color: #174f3b;
+  box-shadow: 0 1px 4px rgba(18, 53, 41, 0.12);
+}
+.priceListActions,
+.priceRowActions,
+.priceRowEditor {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem !important;
+}
+.priceListActions > span {
+  color: #7b8981;
+  font-size: 0.8rem;
+}
+.priceRowEditor input {
+  width: 120px;
+}
+.priceRowActions strong {
+  margin-right: 0.35rem;
+}
+
+@media (max-width: 850px) {
+  .priceLayout,
+  .priceForm {
+    grid-template-columns: 1fr;
+  }
+}

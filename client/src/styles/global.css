@@ -236,15 +236,6 @@ textarea:focus {
   display: grid;
   gap: 1rem;
 }
-.workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.8fr) minmax(420px, 1.2fr);
-  gap: 1rem;
-  align-items: start;
-}
-.price-layout {
-  grid-template-columns: minmax(280px, 0.65fr) minmax(480px, 1.35fr);
-}
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -349,58 +340,6 @@ textarea:focus {
   gap: 0.65rem;
   margin: 1rem 0;
 }
-.price-form {
-  grid-template-columns: minmax(180px, 1fr) auto;
-  align-items: end;
-}
-.price-kind-switch {
-  display: inline-flex;
-  width: fit-content;
-  padding: 0.2rem;
-  border: 1px solid #dbe4df;
-  border-radius: 12px;
-  background: #f4f7f5;
-}
-.price-kind-switch button {
-  border: 0;
-  border-radius: 9px;
-  padding: 0.55rem 0.8rem;
-  background: transparent;
-  color: #64766d;
-  font-weight: 750;
-}
-.price-kind-switch button.active {
-  background: #ffffff;
-  color: #174f3b;
-  box-shadow: 0 1px 4px rgba(18, 53, 41, 0.12);
-}
-.price-list-actions,
-.price-row-actions,
-.price-row-editor {
-  display: flex !important;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.55rem !important;
-}
-.price-list-actions > span {
-  color: #7b8981;
-  font-size: 0.8rem;
-}
-.price-row-editor input {
-  width: 120px;
-}
-.price-row-actions strong {
-  margin-right: 0.35rem;
-}
-.item-form {
-  grid-template-columns: repeat(3, 0.8fr) 1.3fr auto;
-  padding: 1rem;
-  background: #f4f7f5;
-  border-radius: 14px;
-}
-.item-form .form-error {
-  grid-column: 1 / -1;
-}
 .choice-list {
   display: grid;
   gap: 0.45rem;
@@ -421,11 +360,6 @@ textarea:focus {
 }
 .choice-list small {
   color: #7c8c84;
-}
-.order-create-layout {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.65fr) minmax(400px, 1.35fr);
-  gap: 1.25rem;
 }
 .subpanel {
   padding: 1rem;
@@ -809,23 +743,13 @@ textarea:focus {
   text-align: right;
 }
 @media (max-width: 850px) {
-  .workspace-grid,
-  .price-layout,
-  .order-create-layout {
-    grid-template-columns: 1fr;
-  }
-  .inline-form,
-  .price-form,
-  .item-form {
+  .inline-form {
     grid-template-columns: 1fr;
   }
   .form-grid {
     grid-template-columns: 1fr;
   }
-  .field-wide,
-  .item-form .form-error,
-  .service-adder .form-error,
-  .service-adder .form-hint {
+  .field-wide {
     grid-column: auto;
   }
   .module-toolbar,
