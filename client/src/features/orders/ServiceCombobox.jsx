@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 
 import { money } from '../../pages/workspace-utils.js'
+import styles from './Combobox.module.css'
 
 const normalize = (value) =>
   String(value).trim().toLocaleLowerCase('ru-RU').replaceAll('ё', 'е')
@@ -52,9 +53,9 @@ export function ServiceCombobox({
   }
 
   return (
-    <div className="nomenclature-combobox service-combobox field-wide">
+    <div className={`${styles.combobox} service-combobox field-wide`}>
       <label htmlFor={inputId}>{label}</label>
-      <div className="combobox-input-wrap">
+      <div className={styles.inputWrap}>
         <input
           id={inputId}
           type="search"
@@ -102,8 +103,8 @@ export function ServiceCombobox({
         <span aria-hidden="true">⌕</span>
       </div>
       {open && (
-        <div className="combobox-dropdown">
-          <div className="combobox-results-count">
+        <div className={styles.dropdown}>
+          <div className={styles.resultsCount}>
             {filteredItems.length
               ? `Найдено услуг: ${filteredItems.length}`
               : 'Подходящих услуг в прайс-листе нет'}
@@ -138,7 +139,7 @@ export function ServiceCombobox({
         </div>
       )}
       {!value && text && (
-        <small className="combobox-hint">Выберите конкретную услугу из списка.</small>
+        <small className={styles.hint}>Выберите конкретную услугу из списка.</small>
       )}
     </div>
   )

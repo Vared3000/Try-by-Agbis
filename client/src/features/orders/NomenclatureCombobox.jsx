@@ -1,6 +1,7 @@
 import { forwardRef, useId, useMemo, useState } from 'react'
 
 import { money } from '../../pages/workspace-utils.js'
+import styles from './Combobox.module.css'
 
 const unitLabels = {
   piece: 'шт.',
@@ -46,9 +47,9 @@ export const NomenclatureCombobox = forwardRef(function NomenclatureCombobox(
   }
 
   return (
-    <div className="nomenclature-combobox field-wide">
+    <div className={`${styles.combobox} field-wide`}>
       <label htmlFor={inputId}>Позиция номенклатуры</label>
-      <div className="combobox-input-wrap">
+      <div className={styles.inputWrap}>
         <input
           ref={ref}
           id={inputId}
@@ -97,8 +98,8 @@ export const NomenclatureCombobox = forwardRef(function NomenclatureCombobox(
         <span aria-hidden="true">⌕</span>
       </div>
       {open && (
-        <div className="combobox-dropdown">
-          <div className="combobox-results-count">
+        <div className={styles.dropdown}>
+          <div className={styles.resultsCount}>
             {filteredItems.length
               ? `Найдено вариантов: ${filteredItems.length}`
               : 'Совпадений не найдено'}
@@ -131,7 +132,7 @@ export const NomenclatureCombobox = forwardRef(function NomenclatureCombobox(
         </div>
       )}
       {!value && text && (
-        <small className="combobox-hint">Выберите конкретный вариант из списка.</small>
+        <small className={styles.hint}>Выберите конкретный вариант из списка.</small>
       )}
     </div>
   )
