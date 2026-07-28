@@ -5,6 +5,19 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    host: true,
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app', '.ngrok.io', '.trycloudflare.com'],
+    proxy: {
+      '/api': {
+        changeOrigin: true,
+        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:3000',
+      },
+    },
+  },
+  preview: {
+    port: 4173,
+    host: true,
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app', '.ngrok.io', '.trycloudflare.com'],
     proxy: {
       '/api': {
         changeOrigin: true,

@@ -21,6 +21,8 @@ const envSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   AUTH_COOKIE_NAME: z.string().min(1).default('cleanflow_refresh'),
   AUTH_COOKIE_SECURE: booleanFromString,
+  AUTH_COOKIE_SAMESITE: z.enum(['strict', 'lax', 'none']).default('strict'),
+  CORS_ORIGIN: z.string().optional(),
   FILE_STORAGE_PATH: z.string().min(1).default('uploads'),
   FILE_MAX_SIZE_MB: z.coerce.number().int().min(1).max(50).default(10),
   FILE_MAX_PER_ITEM: z.coerce.number().int().min(1).max(50).default(10),

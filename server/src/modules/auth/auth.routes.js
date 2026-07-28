@@ -28,7 +28,7 @@ export function createAuthRouter({ sequelize, env }) {
   const cookieOptions = {
     httpOnly: true,
     secure: env.AUTH_COOKIE_SECURE,
-    sameSite: 'strict',
+    sameSite: env.AUTH_COOKIE_SAMESITE,
     path: '/api/v1/auth',
     maxAge: env.REFRESH_TOKEN_TTL_DAYS * 86_400,
   }
